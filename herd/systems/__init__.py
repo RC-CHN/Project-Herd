@@ -9,8 +9,29 @@ from .documents import DocumentSystem
 from .economy import EconomySystem
 
 
+def _apply_roe(ctx, intents):
+    modes = ctx.rules["force_modes"]
+    for actor in ctx.actors:
+        mode = intents[actor].roe
+        if not mode:
+            continue
+        person = ctx.world.people[actor]
+        if mode not in modes:
+            ctx.result(actor, "failed: invalid roe mode")
+            continue
+        if person.roe != mode:
+            old = person.roe
+            person.roe = mode
+            room = ctx.world.places[person.place]
+            room.last_summary["roe_changes"].append({"actor": actor, "from": old, "to": mode})
+            if ctx.trace is not None:
+                ctx.record("roe", actor=actor, place=person.place, **{"from": old, "to": mode})
+            ctx.result(actor, f"roe set to {mode}")
+
+
 def settle(world, intents, *, trace=None):
     ctx = RoundContext(world, intents, trace)
+    _apply_roe(ctx, intents)
     meeting = CommSystem(world)
     gates = meeting.gates
     documents = DocumentSystem(ctx)

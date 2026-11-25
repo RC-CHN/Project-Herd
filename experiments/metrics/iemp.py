@@ -130,12 +130,16 @@ def military(world: World, trace):
             kind = p.posture.scope_kind
             guards[p.place][kind][p.role] += 1
     outcomes = {kind: {"attackers": 0, "defenders": 0} for kind in ("path", "person", "items")}
+    by_mode = Counter()
     injured, dead = set(), set()
+    total_casualties = 0
     for e in trace:
         if e["type"] == "combat":
             outcomes[e["kind"]][e["winner"]] += 1
+            by_mode[e.get("mode", "lethal")] += 1
             injured.update(a for a, hit in e["damage"].items() if hit)
             dead.update(e["deaths"])
+            total_casualties += sum(e.get("casualties", {}).values())
     return dict(
         guards=guards,
         guard_counts={
@@ -143,9 +147,11 @@ def military(world: World, trace):
         },
         dropped=sum(len(room.last_summary["guards_dropped"]) for room in world.places.values()),
         conflicts={k: sum(v.values()) for k, v in outcomes.items()},
+        conflicts_by_mode=by_mode,
         wins=outcomes,
         wounded_survivors=len(injured - dead),
         combat_deaths=len(dead),
+        total_casualties=total_casualties,
         arms_transfers=[
             e
             for e in trace

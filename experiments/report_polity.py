@@ -33,6 +33,8 @@ def snapshot(world):
         people={
             k: {
                 "place": p.place,
+                "size": p.size,
+                "roe": p.roe,
                 "energy": p.energy,
                 "health": p.health,
                 "inv": p.inv,

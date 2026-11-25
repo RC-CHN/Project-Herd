@@ -23,3 +23,13 @@ def stage_whisper(box, targets, text):
     box.parse_intent({"action": "wait", "whisper_to": whisper_to, "whisper": text})
     box.social.update(whisper_to=whisper_to, whisper=text)
     return {"staged": "whisper", "targets": targets}
+
+
+def set_roe(box, mode):
+    modes = box.view.get("force_modes") or {}
+    if mode not in modes:
+        valid = ", ".join(sorted(modes))
+        raise ValueError(f"unknown roe mode; choose one of: {valid}")
+    box.parse_intent({"action": "wait", "roe": mode})
+    box.social["roe"] = mode
+    return {"staged": "roe", "mode": mode}

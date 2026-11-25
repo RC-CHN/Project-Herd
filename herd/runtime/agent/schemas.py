@@ -61,6 +61,12 @@ INTERNAL_SCHEMAS = [
         {"targets": TARGETS, "text": TEXT},
         ["targets", "text"],
     ),
+    tool(
+        "set_roe",
+        "Change your persistent rules-of-engagement stance (using a mode key listed in force_modes) for this turn and future turns; takes effect immediately before guards and combat.",
+        {"mode": ID},
+        ["mode"],
+    ),
 ]
 ACTION_SCHEMAS = [
     tool("wait", "Submit an action to wait in this room."),

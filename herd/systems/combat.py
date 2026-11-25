@@ -108,30 +108,54 @@ class CombatSystem:
     def fight(self, place, kind, target, attackers, defenders):
         ctx = self.ctx
         scope = "items" if kind == "items" else f"{kind}:{target}"
+        participants = attackers + defenders
+        modes = ctx.rules["force_modes"]
+        default_mode = min(modes, key=lambda k: (modes[k]["severity"], k))
+
+        def actor_mode(actor):
+            m = ctx.world.people[actor].roe
+            return m if m in modes else default_mode
+
+        mode_id = max(
+            (actor_mode(a) for a in participants),
+            key=lambda m: (modes[m]["severity"], m),
+        )
+        mode_spec = modes[mode_id]
+        escalators = [a for a in participants if actor_mode(a) == mode_id]
+
         jitter = sample(f"combat/{ctx.world.seed}/{ctx.tick}/force/{place}/{scope}")
-        attack = self.gates.team_strength(attackers, ctx.start) * (0.85 + 0.30 * jitter)
-        defense = self.gates.team_strength(defenders, ctx.start, terrain=kind == "path")
-        ratio = attack / (attack + defense)
-        won = ratio >= 0.5
-        scale = ctx.rules["combat_damage_scale"]
-        loss = max(2, round(4 * max(ratio, 1 - ratio) * 1.4))
-        loss = max(1, round(loss * scale)) if scale else 0
-        win = round(max(0, round(3 * min(ratio, 1 - ratio))) * scale)
+        attack = self.gates.team_strength(attackers, ctx.start, mode_spec=mode_spec) * (0.85 + 0.30 * jitter)
+        defense = self.gates.team_strength(
+            defenders, ctx.start, terrain=kind == "path", mode_spec=mode_spec
+        )
+        won = attack >= defense
+        top, low = max(attack, defense), min(attack, defense)
+        disadvantage = low / top if top > 0 else 1.0
+        scale = ctx.rules["combat_damage_scale"] * mode_spec["damage_scale"]
+        exp = mode_spec["lanchester_exp"]
+        loss = max(1, round((2.5 + 3.5 * (1.0 - disadvantage)) * scale)) if scale else 0
+        win = round(3.0 * (disadvantage**exp) * scale) if scale else 0
+        lethal = mode_spec["lethal"]
+        rout_shock = mode_spec["rout_shock"]
+        casualty_rate = mode_spec["casualty_rate"]
         winner = "attackers" if won else "defenders"
+        casualties = {}
         if ctx.trace is not None:
             damage, deaths = {}, []
             ctx.record(
                 "combat",
                 kind=kind,
+                mode=mode_id,
+                escalated_by=escalators,
                 place=place,
                 edge=sorted((place, target)) if kind == "path" else None,
                 attackers=attackers,
                 defenders=defenders,
                 winner=winner,
                 damage=damage,
+                casualties=casualties,
                 deaths=deaths,
             )
-        participants = attackers + defenders
         for side, side_won in ((attackers, won), (defenders, not won)):
             base_hit = win if side_won else loss
             for actor in side:
@@ -139,24 +163,47 @@ class CombatSystem:
                 hit = (
                     base_hit
                     if side_won or not base_hit
-                    else max(1, round(base_hit * person.loss_damage_multiplier()))
+                    else max(1, round(base_hit * person.loss_damage_multiplier(rout_shock)))
                 )
-                person.health = max(0, person.health - hit)
-                person.energy = max(0, person.energy - 1)
+                floor_hp = 0 if lethal else 1
+                person.health = max(floor_hp, person.health - hit)
+                person.energy = max(0 if lethal else 1, person.energy - 1)
+                lost_pop = 0
+                if lethal and hit > 0:
+                    if person.is_collective:
+                        raw = round(person.size * (hit / ctx.rules["max_health"]) * casualty_rate)
+                        if hit >= 2 and casualty_rate > 0:
+                            raw = max(1, raw)
+                        lost_pop = min(person.size, raw)
+                        person.size -= lost_pop
+                    elif not person.is_alive:
+                        lost_pop = 1
+                        person.size = 0
+                casualties[actor] = lost_pop
                 if not side_won and hit > 0:
                     ctx.disrupted.add(actor)
-                ctx.result(actor, f"combat {kind} {'won' if side_won else 'lost'}: damage {hit}")
+                msg = f"combat {kind} ({mode_id}) {'won' if side_won else 'lost'}: damage {hit}"
+                if lost_pop and person.is_collective:
+                    msg += f", casualties {lost_pop} (remaining {person.size})"
+                ctx.result(actor, msg)
                 if ctx.trace is not None:
                     damage[actor] = hit
         visible_places = {place, target} if kind == "path" else {place}
-        detail = f"{','.join(attackers)} forced {scope} against {','.join(defenders)}: {winner} won"
+        total_cas = sum(casualties.values())
+        detail = (
+            f"{','.join(attackers)} forced {scope} "
+            f"({mode_spec['label']}, roe={mode_id} by {','.join(escalators)}) "
+            f"against {','.join(defenders)}: {winner} won"
+        )
+        if total_cas:
+            detail += f", casualties {total_cas}"
         for person in ctx.world.people.values():
             if person.is_alive and person.place in visible_places and person.id not in participants:
                 ctx.event(person.id, "combat_witness", attackers[0], detail)
         for actor in participants:
             person = ctx.world.people[actor]
             if not person.is_alive:
-                ctx.die(person, "combat")
+                ctx.die(person, "combat", casualties=casualties[actor])
                 if ctx.trace is not None:
                     deaths.append(actor)
         return won

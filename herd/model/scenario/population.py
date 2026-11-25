@@ -104,6 +104,8 @@ def initial_population(spec, count, seed):
             group["initial_inv"].copy(),
             size=group["size"],
             discipline=group["discipline"],
+            initial_size=group["size"],
+            roe=group["default_roe"],
         )
         members[role].append(actor)
     initial_contacts(spec["ties"], seed, members, people)

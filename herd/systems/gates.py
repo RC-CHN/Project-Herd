@@ -54,16 +54,25 @@ class GateSystem:
             if self.world.people[a].is_alive and self.world.people[a].posture
         ]
 
-    def team_strength(self, team, opening=None, *, terrain=False):
+    def team_strength(self, team, opening=None, *, terrain=False, mode_spec=None):
         world = self.world
-        total = 0.0
+        by_disc = defaultdict(float)
         for actor in team:
-            guard = world.people[actor]
-            power = guard.combat_power(
-                world.spec["items"], world.spec["rules"], opening[actor] if opening else None
+            person = world.people[actor]
+            if person.size <= 0:
+                continue
+            alpha = 0.3 + 0.6 * person.discipline
+            defense = world.places[person.place].defense if terrain else 0.0
+            quality = person.combat_quality(
+                world.spec["items"],
+                world.spec["rules"],
+                opening[actor] if opening else None,
+                mode_spec=mode_spec,
+                terrain_defense=defense,
             )
-            total += power * (1 + world.places[guard.place].defense if terrain else 1)
-        return total * (1 + min(0.5, 0.1 * (len(team) - 1)))
+            if quality > 0:
+                by_disc[person.discipline] += person.size * (quality ** (1.0 / alpha))
+        return sum(vol ** (0.3 + 0.6 * disc) for disc, vol in by_disc.items() if vol > 0)
 
     def effective_blockers(self, guards, actor, credentials=None):
         credentials = self.world.people[actor] if credentials is None else credentials
@@ -95,11 +104,19 @@ class GateSystem:
         person = world.people[actor]
         known = set(person.contacts) | {actor}
 
+        modes = world.spec["rules"]["force_modes"]
+        default_mode = min(modes, key=lambda k: (modes[k]["severity"], k))
+
+        def guard_roe(g):
+            r = world.people[g].roe
+            return r if r in modes else default_mode
+
         def visible(guards):
             return dict(
                 count=len(guards),
                 total_size=sum(world.people[g].size for g in guards),
                 armed_count=sum(world.people[g].armed(world.spec["items"]) for g in guards),
+                max_roe=max((guard_roe(g) for g in guards), key=lambda m: (modes[m]["severity"], m), default=None),
                 known_guards=[g for g in guards if g in known],
             )
 

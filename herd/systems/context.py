@@ -121,14 +121,22 @@ class RoundContext:
             self.world.places[person.place].last_summary["guards_dropped"].append(person.id)
             person.posture = None
 
-    def die(self, person, cause):
+    def die(self, person, cause, *, casualties=0):
         room = self.world.places[person.place]
         person.health = 0
         self.drop_guard(person)
         room.last_summary["deaths"].append(person.id)
         self.event(person.id, "death", person.id, cause)
-        if person.size > 1:
-            detail = "dispersed (routed in combat)" if cause == "combat" else "dispersed (exhausted)"
+        if person.is_collective:
+            if cause == "combat":
+                if person.size == 0:
+                    detail = "was annihilated in combat"
+                elif casualties > 0:
+                    detail = f"suffered {casualties} casualties and dispersed (routed in combat)"
+                else:
+                    detail = "dispersed (routed in combat)"
+            else:
+                detail = "dispersed (exhausted)"
         else:
             detail = "was killed in combat" if cause == "combat" else "died of starvation"
         for witness in self.world.people.values():
@@ -140,6 +148,9 @@ class RoundContext:
                 actor=person.id,
                 place=room.id,
                 cause=cause,
+                casualties=casualties,
+                remaining_size=person.size,
+                annihilated=person.size == 0,
                 dropped_inv=person.inv.copy(),
                 dropped_docs=person.docs.copy(),
             )

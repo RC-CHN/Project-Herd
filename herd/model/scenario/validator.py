@@ -1,11 +1,25 @@
 """Validate declarative geography, items, groups and scheduled changes."""
 
+from copy import deepcopy
 from datetime import date
 import math
 import re
 
 from ..entities.person import inventory_weight
 from .population import validate_population
+
+DEFAULT_FORCE_MODES = {
+    "lethal": {
+        "label": "致命强攻",
+        "severity": 1,
+        "lethal_arms_scale": 1.0,
+        "damage_scale": 1.0,
+        "lethal": True,
+        "lanchester_exp": 1.0,
+        "rout_shock": 1.0,
+        "casualty_rate": 0.4,
+    }
+}
 
 
 def keys(value, names, path):
@@ -64,7 +78,13 @@ def inventory(stock, items):
 
 
 def validate_items(items):
-    extra = {"edible": "energy_restore", "fungible": "", "arms": "combat_bonus", "seal": "unique", "comm": ""}
+    extra = {
+        "edible": "energy_restore",
+        "fungible": "",
+        "arms": "combat_bonus nonlethal",
+        "seal": "unique",
+        "comm": "",
+    }
     for name, item in items.items():
         kind = mapping(item, name).get("kind")
         reference(kind, extra, name)
@@ -72,6 +92,10 @@ def validate_items(items):
             item.setdefault("unique", False)
             if not isinstance(item["unique"], bool):
                 raise ValueError(f"{name}: unique must be boolean")
+        elif kind == "arms":
+            item.setdefault("nonlethal", False)
+            if not isinstance(item["nonlethal"], bool):
+                raise ValueError(f"{name}: nonlethal must be boolean")
         item.setdefault("weight", 1)
         integer(item["weight"], 0, f"{name}.weight")
         keys(item, "label kind weight " + extra[kind], name)
@@ -138,8 +162,36 @@ def validate_places(places, items):
             raise ValueError(f"{name}: paths must be bidirectional")
 
 
+def validate_force_modes(modes):
+    mapping(modes, "rules.force_modes")
+    if not modes:
+        raise ValueError("rules.force_modes: expected at least one mode")
+    for name, mode in modes.items():
+        identifier(name, "rules.force_modes")
+        mapping(mode, f"force_modes.{name}")
+        mode.setdefault("casualty_rate", 0.4 if mode.get("lethal", True) else 0.0)
+        keys(
+            mode,
+            "label severity lethal_arms_scale damage_scale lethal lanchester_exp rout_shock casualty_rate",
+            f"force_modes.{name}",
+        )
+        string(mode["label"], f"force_modes.{name}.label")
+        integer(mode["severity"], 1, f"force_modes.{name}.severity")
+        number(mode["lethal_arms_scale"], 0, 1, f"force_modes.{name}.lethal_arms_scale")
+        number(mode["damage_scale"], 0, math.inf, f"force_modes.{name}.damage_scale")
+        if not isinstance(mode["lethal"], bool):
+            raise ValueError(f"force_modes.{name}.lethal: expected boolean")
+        number(mode["lanchester_exp"], 0.5, 4.0, f"force_modes.{name}.lanchester_exp")
+        number(mode["rout_shock"], 0, math.inf, f"force_modes.{name}.rout_shock")
+        number(mode["casualty_rate"], 0, 1, f"force_modes.{name}.casualty_rate")
+        for field in ("lethal_arms_scale", "damage_scale", "lanchester_exp", "rout_shock", "casualty_rate"):
+            mode[field] = float(mode[field])
+
+
 def validate_groups(spec):
     groups, places, rules = spec["groups"], spec["places"], spec["rules"]
+    modes = rules["force_modes"]
+    default_mode = min(modes, key=lambda k: (modes[k]["severity"], k))
     for name, group in groups.items():
         mapping(group, name)
         if "exact_count" in group:
@@ -147,9 +199,10 @@ def validate_groups(spec):
             group.setdefault("weight", 1)
         group.setdefault("size", 1)
         group.setdefault("discipline", 1.0)
+        group.setdefault("default_roe", default_mode)
         keys(
             group,
-            "label public_tag weight home brief initial_energy initial_health initial_inv archetypes size discipline"
+            "label public_tag weight home brief initial_energy initial_health initial_inv archetypes size discipline default_roe"
             + (" exact_count" if "exact_count" in group else ""),
             name,
         )
@@ -159,6 +212,7 @@ def validate_groups(spec):
         integer(group["size"], 1, f"{name}.size")
         number(group["discipline"], 0, 1, f"{name}.discipline")
         group["discipline"] = float(group["discipline"])
+        reference(group["default_roe"], modes, f"{name}.default_roe")
         home = group["home"]
         if isinstance(home, str):
             reference(home, places, "home")
@@ -286,21 +340,24 @@ def validate_polity(spec):
     rules.setdefault("clock_interval", 1)
     rules.setdefault("combat_damage_scale", 1.0)
     rules.setdefault("exertion_energy_cost", 0)
+    rules.setdefault("write_energy_cost", 0)
     rules.setdefault("night_whisper_multiplier", 1.0)
+    rules.setdefault("force_modes", deepcopy(DEFAULT_FORCE_MODES))
     positive = "contact_size board_slots max_energy max_health whisper_detect_ref_crowd offer_ttl clock_interval carry_cap"
     probabilities = "whisper_detect_base whisper_detect_min whisper_detect_max whisper_same_huddle_bonus night_whisper_multiplier"
     keys(
         rules,
         positive
-        + " base_energy_decay low_energy_threshold exertion_energy_cost combat_damage_scale "
+        + " base_energy_decay low_energy_threshold exertion_energy_cost write_energy_cost combat_damage_scale force_modes "
         + probabilities,
         "rules",
     )
     for field in positive.split():
         integer(rules[field], 1, field)
-    for field in ("base_energy_decay", "low_energy_threshold", "exertion_energy_cost"):
+    for field in ("base_energy_decay", "low_energy_threshold", "exertion_energy_cost", "write_energy_cost"):
         integer(rules[field], 0, field)
     number(rules["combat_damage_scale"], 0, math.inf, "combat_damage_scale")
+    validate_force_modes(rules["force_modes"])
     for field in probabilities.split():
         number(rules[field], 0, 1, field)
     if rules["whisper_detect_min"] > rules["whisper_detect_max"]:

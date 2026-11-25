@@ -59,23 +59,24 @@ class CombatTests(PolityCase):
             r003=Intent("guard", "path:*"),
             r004=Intent("move", "annex"),
         )
-        # Two opening scores, cohesion, then each defender's own gate terrain.
+        # Scale-invariant strength (size=1, disc=1.0 -> alpha=0.9) and Lanchester damage (p=1.0).
         epsilon = (
             0.3 * int.from_bytes(sha256(b"combat/7/0/force/atrium/path:annex").digest()[:4], "big") / 2**32
             - 0.15
         )
-        attack = (2.5 + 0.5 * 0.8) * 1.1 * (1 + epsilon)
-        defend = (1 + 1.35) * 1.1
-        ratio = attack / (attack + defend)
-        self.assertGreater(ratio, 0.5)
+        alpha = 0.9
+        attack = ((2.5 ** (1 / alpha) + (0.5 * 0.8) ** (1 / alpha)) ** alpha) * (1 + epsilon)
+        defend = (1.0 ** (1 / alpha) + 1.35 ** (1 / alpha)) ** alpha
+        self.assertGreater(attack, defend)
+        disadvantage = defend / attack
         t = []
         turn(w, actions, t)
         clash = next(e for e in t if e["type"] == "combat")
         self.assertEqual(clash["kind"], "path")
         self.assertEqual(set(clash["attackers"]), {"r000", "r001"})
         self.assertEqual(set(clash["defenders"]), {"r002", "r003"})
-        self.assertEqual(clash["damage"]["r000"], round(3 * (1 - ratio)))
-        self.assertEqual(clash["damage"]["r003"], max(2, round(4 * ratio * 1.4)))
+        self.assertEqual(clash["damage"]["r000"], round(3.0 * disadvantage))
+        self.assertEqual(clash["damage"]["r003"], max(1, round(2.5 + 3.5 * (1.0 - disadvantage))))
         self.assertEqual(people["r001"].energy, 3)
         self.assertEqual(w.places["atrium"].last_summary["guards_dropped"], ["r003"])
         self.assertEqual(w.places["annex"].last_summary["guards_dropped"], ["r002"])
@@ -174,7 +175,7 @@ class CombatTests(PolityCase):
         self.assertTrue(any(neighbors[a]["wounded"] for a in ("r000", "r001", "r002")))
         self.assertEqual(
             set(neighbors["r000"]),
-            {"id", "tag", "size", "disciplined", "known", "rels", "armed", "wounded", "weak"},
+            {"id", "tag", "size", "disciplined", "roe", "known", "rels", "armed", "wounded", "weak"},
         )
         self.assertEqual(view["guards"]["persons"]["r001"]["armed_count"], 0)
 

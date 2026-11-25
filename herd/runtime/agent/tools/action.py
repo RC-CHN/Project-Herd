@@ -78,6 +78,10 @@ def check_target(box, target, guarding):
 def guard(box, target, allow_pass=""):
     check_target(box, target, guarding=True)
     rule = PassRule.parse(allow_pass)
+    if "self" in rule.allow_ids:
+        raise ValueError(
+            "guards always admit themselves automatically; omit 'self' and list only resident IDs"
+        )
     visible_item = box.view.get("item_info", {}).get(rule.seal_id)
     if visible_item and visible_item["kind"] != "seal":
         raise ValueError("seal passage requires a seal item")

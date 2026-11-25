@@ -9,7 +9,17 @@ from dataclasses import dataclass, field
 def room_summary() -> dict[str, list]:
     return {
         name: []
-        for name in ("entered", "left", "guards_dropped", "deaths", "taken", "placed", "given", "blocked_takes")
+        for name in (
+            "entered",
+            "left",
+            "guards_dropped",
+            "deaths",
+            "taken",
+            "placed",
+            "given",
+            "blocked_takes",
+            "roe_changes",
+        )
     }
 
 

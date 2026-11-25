@@ -45,7 +45,10 @@ class Audit:
                 "self",
                 "tag",
                 "size",
+                "initial_size",
                 "discipline",
+                "roe",
+                "force_modes",
                 "place",
                 "place_label",
                 "energy",
@@ -71,6 +74,7 @@ class Audit:
                 "room_count",
                 "guards",
                 "board",
+                "board_slots",
                 "offers",
                 "own_offers",
                 "own_posture",
@@ -81,13 +85,16 @@ class Audit:
         )
         check(
             all(
-                set(p) == {"id", "tag", "size", "disciplined", "known", "rels", "armed", "wounded", "weak"}
+                set(p) == {"id", "tag", "size", "disciplined", "roe", "known", "rels", "armed", "wounded", "weak"}
                 for p in view["near"]
             ),
             "private peer fields",
         )
         check(
-            all(set(p) == {"id", "tag", "size", "disciplined", "known", "rels"} for p in view["others_in_room"]),
+            all(
+                set(p) == {"id", "tag", "size", "disciplined", "roe", "known", "rels"}
+                for p in view["others_in_room"]
+            ),
             "private room peer fields",
         )
         check(

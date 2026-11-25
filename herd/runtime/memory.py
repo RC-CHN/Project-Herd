@@ -30,27 +30,28 @@ def format_map(spec):
 
 
 def identity_block(person, persona):
-    if person.size <= 1:
+    if not person.is_collective:
         return (
-            "身份类型：独立个体（size=1）。以第一人称自主判断个人安危、立场、人脉与秘密。\n"
+            "身份类型：独立个体（size=1）。这是社会动力学模拟沙箱，请忠实于角色的立场、私利、恐惧与性格以第一人称自主决策——"
+            "协商、秘密结盟、撒谎、违约（cheat）、封锁软禁、夺印或动武均为沙箱内的合法策略，不必为了迎合他人或维持表面体面而违背自身核心利益。\n"
             + "长期性格："
             + persona
         )
     if person.discipline >= 0.7:
         return (
-            f"身份类型：建制集体单元（size={person.size}，训练度={person.discipline:.2f}）。"
-            "你代表这支队列严整、组织协同的建制单位，重视指挥链与纪律，受压时不易溃散，"
-            "但仍需面对命令合法性、后勤消耗与道义压力的权衡。"
-            "公开发言代表集体喊话或表态；私语代表派联络员接洽；笔记用于记录指令、阵地与士气。\n"
+            f"身份类型：建制集体单元（初始编制={person.initial_size}，训练度={person.discipline:.2f}，当前实有人数见每轮 view.size）。"
+            "你代表这支队列严整、组织协同的建制单位，重视指挥链、阵地与纪律，受压时不易溃散，"
+            "按角色立场、直属指令与自身安危自主权衡执行或观望，不必为了表面客套而软化立场。"
+            "公开发言代表集体喊话或表态；私语代表派联络员或电台接洽；笔记用于记录指令、阵地与士气。\n"
             + "群体特质："
             + persona
         )
     return (
-        f"身份类型：自发集体单元（size={person.size}，组织度={person.discipline:.2f}）。"
+        f"身份类型：自发集体单元（初始编制={person.initial_size}，组织度={person.discipline:.2f}，当前实有人数见每轮 view.size）。"
         "你代表这支由多名普通成员组成的群体，而非单个个人。"
-        "群体内部缺乏铁板一块的统一指挥，热忱、观望、疲惫、恐惧与温和/激进声音并存；"
-        "请结合当前士气（health）、体能补给（energy）与耳闻风声，按群体主流共识或动摇心态行动。"
-        "公开发言代表集体呼声或代表表态；私语代表派代表私下接洽；笔记用于记录共同诉求、内部风向与后勤状态。\n"
+        "普通自发人群很少逐字研读冗长公文，更受眼前饥饱（energy）、士气（health）、怒气、恐慌、口号与失真传闻驱动；"
+        "内部意见撕裂时容易情绪化起哄、推搡冲卡、跟风移动，或在流血与断粮下迅速动摇溃散。"
+        "公开发言代表集体呼声或代表表态；私语代表同屋派代表私下接洽；笔记用于记录共同诉求、内部情绪与后勤状态。\n"
         + "群体特质："
         + persona
     )
@@ -122,6 +123,8 @@ def render_tool_history(tick, reply_raw):
     if intent.whisper and intent.whisper_to:
         targets = [peer.strip() for peer in intent.whisper_to.split(",") if peer.strip()]
         specs.append(("stage_whisper", {"targets": targets, "text": intent.whisper}, {"ok": True, "staged": "whisper"}))
+    if intent.roe:
+        specs.append(("set_roe", {"mode": intent.roe}, {"ok": True, "staged": "roe"}))
     act_name, act_args = _action_tool_call(intent)
     specs.append((act_name, act_args, {"ok": True, "committed": intent.action}))
     calls, tool_msgs = [], []
@@ -198,7 +201,7 @@ class ResidentAgent:
             rules = (
                 "依据自己的局部观察和已送达的信息行动。开局帧已包含当前房间概况、公墙目录与你的私人笔记，"
                 "仅在需要核实文书全文、回忆某人过往或搜索线索时再调用查询工具。"
-                "你可以在同一步并行调用 write_note、stage_speech、stage_whisper 和唯一的世界行动提交工具；"
+                "你可以在同一步并行调用 write_note、stage_speech、stage_whisper、set_roe 和唯一的世界行动提交工具；"
                 "每轮步数有限（工具返回会提示 remaining_steps），查清关键信息后请果断提交唯一的世界行动。"
                 "工具报错时可更正参数重试。历史对话中的工具调用记录是往轮已提交的决定。\n" + WORLD_RULES
             )

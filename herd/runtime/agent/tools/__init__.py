@@ -15,6 +15,7 @@ INTERNAL = {
         memory.delete_note,
         social.stage_speech,
         social.stage_whisper,
+        social.set_roe,
     )
 }
 ACTIONS = {

@@ -28,6 +28,16 @@ class Person:
     posture: GuardPosture | None = None
     size: int = 1
     discipline: float = 1.0
+    initial_size: int = 0
+    roe: str = ""
+
+    def __post_init__(self) -> None:
+        if self.initial_size <= 0:
+            self.initial_size = max(1, self.size)
+
+    @property
+    def is_collective(self) -> bool:
+        return self.initial_size > 1
 
     @property
     def contacts(self) -> list[str]:
@@ -46,7 +56,7 @@ class Person:
 
     @property
     def is_alive(self) -> bool:
-        return self.health > 0 and self.energy > 0
+        return self.health > 0 and self.energy > 0 and self.size > 0
 
     def armed(self, items: dict) -> bool:
         return any(qty > 0 and items[item]["kind"] == "arms" for item, qty in self.inv.items())
@@ -61,38 +71,54 @@ class Person:
         return any(qty > 0 and items[item]["kind"] == "comm" for item, qty in inv.items())
 
     def can_remote_comm(self, place_comms: bool, items: dict, snapshot=None) -> bool:
-        if self.size > 1 and self.discipline < 0.7:
+        if self.is_collective and self.discipline < 0.7:
             return False
         return place_comms or self.has_comm(items, snapshot)
 
     def effective_size(self) -> float:
-        return self.size ** (0.3 + 0.6 * self.discipline)
+        return self.size ** (0.3 + 0.6 * self.discipline) if self.size > 0 else 0.0
 
     def carry_cap(self, base_cap: int) -> int:
-        return round(base_cap * math.sqrt(self.size))
+        return round(base_cap * math.sqrt(max(1, self.size)))
 
     def eat_restore(self, base_restore: int) -> int:
-        return max(1, round(base_restore / math.sqrt(self.size)))
+        return max(1, round(base_restore / math.sqrt(max(1, self.size))))
 
-    def loss_damage_multiplier(self) -> float:
-        return 1.0 + 0.5 * (1.0 - self.discipline)
+    def loss_damage_multiplier(self, rout_shock: float = 1.0) -> float:
+        return 1.0 + 0.5 * rout_shock * (1.0 - self.discipline)
 
-    def combat_power(self, items: dict, rules: dict, snapshot=None) -> float:
+    def arms_bonus(self, items: dict, snapshot=None, lethal_arms_scale: float = 1.0) -> float:
         state = self if snapshot is None else snapshot
-        if isinstance(state, Mapping):
-            inv, energy, health = state["inv"], state["energy"], state["health"]
-        else:
-            inv, energy, health = state.inv, state.energy, state.health
-        best = max(
+        inv = state["inv"] if isinstance(state, Mapping) else state.inv
+        return max(
             (
                 items[item]["combat_bonus"]
+                * (1.0 if items[item].get("nonlethal") else lethal_arms_scale)
                 for item, qty in inv.items()
                 if qty > 0 and items[item]["kind"] == "arms"
             ),
-            default=0,
+            default=0.0,
         )
-        vigor = 1 if energy > rules["low_energy_threshold"] else 0.5
-        return self.effective_size() * (1 + best) * vigor * health / rules["max_health"]
+
+    def combat_quality(
+        self, items: dict, rules: dict, snapshot=None, *, mode_spec=None, terrain_defense: float = 0.0
+    ) -> float:
+        state = self if snapshot is None else snapshot
+        if isinstance(state, Mapping):
+            energy, health = state["energy"], state["health"]
+        else:
+            energy, health = state.energy, state.health
+        lethal_scale = mode_spec["lethal_arms_scale"] if mode_spec else 1.0
+        best = self.arms_bonus(items, state, lethal_scale)
+        vigor = 1.0 if energy > rules["low_energy_threshold"] else 0.5
+        return (1.0 + best) * vigor * (health / rules["max_health"]) * (1.0 + terrain_defense)
+
+    def combat_power(
+        self, items: dict, rules: dict, snapshot=None, *, mode_spec=None, terrain_defense: float = 0.0
+    ) -> float:
+        return self.effective_size() * self.combat_quality(
+            items, rules, snapshot, mode_spec=mode_spec, terrain_defense=terrain_defense
+        )
 
     def carry_weight(self, items: dict) -> int:
         return inventory_weight(self.inv, items)
@@ -135,7 +161,9 @@ class Person:
             relations={peer: tags.copy() for peer, tags in self.relations.items()},
             posture=self.posture.to_dict() if self.posture else None,
             size=self.size,
+            initial_size=self.initial_size,
             discipline=self.discipline,
+            roe=self.roe,
         )
 
     @classmethod
@@ -151,6 +179,7 @@ class Person:
             relations = {peer: list(tags) for peer, tags in data["relations"].items()}
         else:
             relations = {peer: ["known"] for peer in data.get("contacts", [])}
+        size = data.get("size", 1)
         return cls(
             actor_id,
             data["role"],
@@ -162,6 +191,8 @@ class Person:
             data["docs"].copy(),
             relations,
             posture,
-            data.get("size", 1),
+            size,
             float(data.get("discipline", 1.0)),
+            data.get("initial_size", max(1, size)),
+            data.get("roe", ""),
         )

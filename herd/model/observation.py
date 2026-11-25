@@ -54,6 +54,7 @@ def observe(world, actor_id: str, index) -> dict:
                     tag=peer.tag,
                     size=peer.size,
                     disciplined=peer.discipline >= 0.7,
+                    roe=peer.roe,
                     known=peer.id in known,
                     rels=me.rels_for(peer.id),
                     armed=peer.armed(items),
@@ -71,6 +72,7 @@ def observe(world, actor_id: str, index) -> dict:
                     tag=peer.tag,
                     size=peer.size,
                     disciplined=peer.discipline >= 0.7,
+                    roe=peer.roe,
                     known=peer_id in known,
                     rels=me.rels_for(peer.id),
                 )
@@ -98,7 +100,13 @@ def observe(world, actor_id: str, index) -> dict:
         self=actor_id,
         tag=me.tag,
         size=me.size,
+        initial_size=me.initial_size,
         discipline=me.discipline,
+        roe=me.roe,
+        force_modes={
+            k: dict(label=v["label"], severity=v["severity"], lethal=v["lethal"])
+            for k, v in rules["force_modes"].items()
+        },
         place=room.id,
         place_label=room.label,
         energy=me.energy,
@@ -128,6 +136,7 @@ def observe(world, actor_id: str, index) -> dict:
         others_in_room=others_in_room,
         room_count=len(index.present[room.id]),
         board=board,
+        board_slots=rules["board_slots"],
         offers=offers,
         own_offers=own_offers,
         guards=index.gates.view(actor_id),
