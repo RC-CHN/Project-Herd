@@ -33,7 +33,10 @@ class DocumentSystem:
                 text=intent.detail,
                 signers=[actor],
             )
-            ctx.world.people[actor].docs[doc_id] = 1
+            person = ctx.world.people[actor]
+            person.docs[doc_id] = 1
+            if cost := ctx.rules.get("write_energy_cost", 0):
+                person.energy = max(1, person.energy - cost)
             self.trace("write", actor, doc_id)
             if intent.target == "post":
                 self.post(room, doc_id)
