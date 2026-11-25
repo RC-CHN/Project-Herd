@@ -160,6 +160,8 @@ class CombatSystem:
             )
         for side, side_won in ((attackers, won), (defenders, not won)):
             base_hit = win if side_won else loss
+            hits = {}
+            expected_cas = {}
             for actor in side:
                 person = ctx.world.people[actor]
                 hit_roll = 0.75 + 0.50 * sample(
@@ -170,20 +172,21 @@ class CombatSystem:
                     if side_won or not base_hit
                     else max(1, round(base_hit * person.loss_damage_multiplier(rout_shock) * hit_roll))
                 )
+                hits[actor] = hit
+                if lethal and hit > 0 and person.is_collective and casualty_rate > 0 and person.size > 0:
+                    ratio = min(1.0, hit / ctx.rules["max_health"])
+                    expected_cas[actor] = person.size * ratio * casualty_rate
+            allocated_cas = self._allocate_side_casualties(expected_cas, hits, place, scope)
+            for actor in side:
+                person = ctx.world.people[actor]
+                hit = hits[actor]
                 floor_hp = 0 if lethal else 1
                 person.health = max(floor_hp, person.health - hit)
                 person.energy = max(0 if lethal else 1, person.energy - 1)
                 lost_pop = 0
                 if lethal and hit > 0:
                     if person.is_collective:
-                        cas_roll = 0.75 + 0.50 * sample(
-                            f"combat_cas/{ctx.world.seed}/{ctx.tick}/{place}/{scope}/{actor}"
-                        )
-                        ratio = min(1.0, hit / ctx.rules["max_health"])
-                        raw = round(person.size * ratio * casualty_rate * cas_roll)
-                        if hit >= 2 and casualty_rate > 0:
-                            raw = max(1, raw)
-                        lost_pop = min(person.size, raw)
+                        lost_pop = min(person.size, allocated_cas.get(actor, 0))
                         person.size -= lost_pop
                         if lost_pop > 0:
                             ctx.leave_body(person.place, f"body_t{ctx.tick}_{person.id}", person, "combat", lost_pop)
@@ -264,6 +267,65 @@ class CombatSystem:
                 if ctx.trace is not None:
                     deaths.append(actor)
         return won
+
+    def _allocate_side_casualties(self, expected_cas, hits, place, scope):
+        """Conserve a side's total collective casualty pool while distributing it with random fire concentration."""
+        if not expected_cas:
+            return {}
+        ctx = self.ctx
+        if len(expected_cas) == 1:
+            actor, exp_val = next(iter(expected_cas.items()))
+            roll = 0.80 + 0.40 * sample(f"combat_cas/{ctx.world.seed}/{ctx.tick}/{place}/{scope}/{actor}")
+            raw = round(exp_val * roll)
+            if hits[actor] >= 2:
+                raw = max(1, raw)
+            return {actor: min(ctx.world.people[actor].size, raw)}
+        max_cap = sum(ctx.world.people[a].size for a in expected_cas)
+        pool = round(sum(expected_cas.values()))
+        if pool == 0 and any(hits[a] >= 2 for a in expected_cas):
+            pool = 1
+        pool = min(pool, max_cap)
+        if pool <= 0:
+            return {a: 0 for a in expected_cas}
+        weights = {
+            a: exp_val * (0.40 + 1.20 * sample(f"combat_cas/{ctx.world.seed}/{ctx.tick}/{place}/{scope}/{a}"))
+            for a, exp_val in expected_cas.items()
+        }
+        alloc = {a: 0 for a in expected_cas}
+        remaining = pool
+        while remaining > 0:
+            open_actors = [a for a in expected_cas if alloc[a] < ctx.world.people[a].size]
+            if not open_actors:
+                break
+            total_w = sum(weights[a] for a in open_actors)
+            if total_w <= 0:
+                total_w = float(len(open_actors))
+                shares = {a: remaining / total_w for a in open_actors}
+            else:
+                shares = {a: remaining * (weights[a] / total_w) for a in open_actors}
+            added = 0
+            remainders = []
+            for a in open_actors:
+                cap_left = ctx.world.people[a].size - alloc[a]
+                whole = min(cap_left, int(shares[a]))
+                alloc[a] += whole
+                added += whole
+                if alloc[a] < ctx.world.people[a].size:
+                    remainders.append((shares[a] - int(shares[a]), weights[a], a))
+            remaining -= added
+            if remaining > 0:
+                remainders.sort(reverse=True)
+                progressed = False
+                for _, _, a in remainders:
+                    if remaining <= 0:
+                        break
+                    if alloc[a] < ctx.world.people[a].size:
+                        alloc[a] += 1
+                        remaining -= 1
+                        progressed = True
+                if not progressed:
+                    break
+        return alloc
 
     def _rout_exit(self, actor, kind, place, target):
         ctx = self.ctx
