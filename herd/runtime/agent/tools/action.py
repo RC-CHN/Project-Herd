@@ -21,8 +21,8 @@ def available_to_collect(view, item):
 
 EXHAUSTED_TOOL_ERROR = (
     "你当前处于力竭失能状态（energy=0），无法执行此行动。"
-    "自救方式：① 若背包有食物请直接调用 eat；② 若房间地面有食物请先 take 再 eat；"
-    "③ 若负重已满请先 give(target='here') 放下重物腾出空间；"
+    "自救方式：① 若背包或本屋地面有未被看管的食物，可直接调用 eat 一步进食恢复；"
+    "② 若需要拾取物资可调用 take；③ 若负重已满请先 give(target='here') 放下重物腾出空间；"
     "④ 若身边无食物，请用 stage_speech/stage_whisper 呼救求粮，并调用 wait 原地等待救援。"
 )
 
@@ -38,9 +38,11 @@ def wait(box):
 
 def eat(box, item=None):
     view = box.view
-    foods = {i for i, n in view["inv"].items() if n and view["item_info"][i]["kind"] == "edible"}
+    inv_foods = {i for i, n in view["inv"].items() if n and view["item_info"][i]["kind"] == "edible"}
+    room_foods = {i for i, n in view["items"].items() if n and view["item_info"][i]["kind"] == "edible"}
+    foods = inv_foods | room_foods
     if not foods or (item is not None and item not in foods):
-        raise ValueError("no matching edible item in your inventory")
+        raise ValueError("no matching edible item in your inventory or room")
     return {"action": "eat", "item": item or ""}
 
 

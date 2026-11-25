@@ -128,6 +128,7 @@ def observe(world, actor_id: str, index) -> dict:
         carry_weight=me.carry_weight(items),
         carry_cap=me.carry_cap(rules["carry_cap"]),
         room_comms=room.comms,
+        room_sustenance=room.sustenance,
         can_remote_comm=me.can_remote_comm(room.comms, items),
         contacts=[
             dict(id=cid, tag=world.people[cid].tag, rels=me.rels_for(cid))
@@ -153,9 +154,9 @@ def observe(world, actor_id: str, index) -> dict:
     if is_exhausted:
         view["status_hint"] = (
             "你已力竭失能（energy=0）：无法移动、强攻、值守、采集、向他人交付、撰文或交易。"
-            "自救方式：① 若背包有食物请直接 eat；② 若房间地面有食物请先 take 再 eat；"
-            "③ 若负重已满请先 give(target='here') 放下重物腾出空间；"
-            "④ 若身边无食物，请用发言或私语向同屋人或通讯熟人求粮，并用 wait 原地等待救援。"
+            "自救方式：① 若背包或本屋地面有未被看管的食物，可直接 eat 一步进食恢复；"
+            "② 若负重已满请先 give(target='here') 放下重物腾出空间；"
+            "③ 若身边无食物，请用发言或私语向同屋人或通讯熟人求粮，并用 wait 原地等待救援。"
         )
     return view
 

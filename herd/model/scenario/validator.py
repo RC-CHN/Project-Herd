@@ -117,15 +117,18 @@ def validate_places(places, items):
             ("regen", {}),
             ("defense", 0),
             ("comms", False),
+            ("sustenance", False),
         ):
             place.setdefault(field, default)
         keys(
             place,
-            "label paths facility initial_items regen defense comms" + (" pos" if "pos" in place else ""),
+            "label paths facility initial_items regen defense comms sustenance" + (" pos" if "pos" in place else ""),
             name,
         )
         if not isinstance(place["comms"], bool):
             raise ValueError(f"{name}.comms: expected boolean")
+        if not isinstance(place["sustenance"], bool):
+            raise ValueError(f"{name}.sustenance: expected boolean")
         string(place["label"], name)
         references(place["paths"], places, "paths")
         if name in place["paths"]:
@@ -285,6 +288,7 @@ def validate_schedule(spec):
         "items_delta": "place item delta",
         "drop_doc": "place",
         "comms_set": "place enabled",
+        "sustenance_set": "place enabled",
     }
     for event in sequence(spec["shocks"], "shocks"):
         kind = mapping(event, "shock").get("kind")
@@ -304,8 +308,8 @@ def validate_schedule(spec):
                 items[event["item"]].get("unique") and event["delta"] > 0
             ):
                 raise ValueError("invalid items_delta")
-        if kind == "comms_set" and not isinstance(event["enabled"], bool):
-            raise ValueError("comms_set: enabled must be boolean")
+        if kind in ("comms_set", "sustenance_set") and not isinstance(event["enabled"], bool):
+            raise ValueError(f"{kind}: enabled must be boolean")
     for notice in sequence(spec["notices"], "notices"):
         mapping(notice, "notice")
         if "place" in notice:

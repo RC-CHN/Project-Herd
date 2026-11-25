@@ -24,8 +24,8 @@ def format_map(spec):
     entries = []
     for place_id, layout in places.items():
         neighbors = "、".join(f"{places[n]['label']}({n})" for n in layout["paths"])
-        tag = "[有通讯]" if layout.get("comms") else ""
-        entries.append(f"{layout['label']}({place_id}){tag}通往{neighbors}")
+        tags = ("[有通讯]" if layout.get("comms") else "") + ("[有补给]" if layout.get("sustenance") else "")
+        entries.append(f"{layout['label']}({place_id}){tags}通往{neighbors}")
     return "空间布局：" + "；".join(entries) + "。"
 
 

@@ -245,3 +245,66 @@ class ClockTests(unittest.TestCase):
         self.assertFalse(indiv.is_exhausted)
         self.assertGreater(indiv.energy, 0)
         self.assertTrue(any(e[0] == indiv.id and e[2] == "notice" and "体力恢复" in e[4] for e in ev_eat))
+
+    def test_room_sustenance_and_direct_eat_from_room(self):
+        from herd.runtime.agent.toolbox import AgentToolbox
+        from herd.runtime.memory import Request, format_map
+
+        spec = fixture()
+        spec["rules"].update(
+            clock_interval=1,
+            base_energy_decay=2,
+            carry_cap=4,
+            zero_energy_mode="exhaust",
+            starvation_health_loss=0,
+        )
+        spec["items"]["token"]["weight"] = 4
+        spec["places"]["atrium"]["sustenance"] = True
+        spec["places"]["atrium"]["initial_items"] = {"ration": 2}
+        spec["places"]["annex"]["sustenance"] = False
+        spec["places"]["annex"]["initial_items"] = {"ration": 2}
+        spec["shocks"] = [
+            dict(
+                tick=2,
+                place="atrium",
+                kind="sustenance_set",
+                enabled=False,
+                source="logistics",
+                text="supply cut",
+                announce_places=["atrium"],
+            )
+        ]
+        w = World.create(spec, 4, 7)
+        self.assertIn("[有补给]", format_map(w.spec))
+        a, b, c = w.people["r000"], w.people["r001"], w.people["r002"]
+        a.place, a.energy, a.inv = "atrium", 5, {}
+        b.place, b.energy, b.inv = "annex", 1, {"token": 1}  # full carry weight (4/4), no carried food
+        c.place, c.energy, c.inv = "annex", 10, {}
+        self.assertTrue(w.observe(a.id)["room_sustenance"])
+        self.assertFalse(w.observe(b.id)["room_sustenance"])
+
+        # Tick 0: a in sustenance room gains +1 energy (exempt from -2 decay); b in annex hits energy 0 (exhausted).
+        turn(w, {})
+        self.assertEqual(a.energy, 6)
+        self.assertTrue(b.is_exhausted)
+
+        # Tick 1: c guards items at annex -> b trying to eat room ration is blocked!
+        ev_blocked = turn(w, {c.id: Intent("guard", "items", "none"), b.id: Intent("eat", item="ration")})
+        self.assertTrue(any(e[0] == b.id and e[2] == "result" and "blocked" in e[4] for e in ev_blocked))
+        self.assertTrue(b.is_exhausted)
+        self.assertEqual(w.places["annex"].items["ration"], 2)
+
+        # Tick 2: c stops guarding -> b (exhausted & full carry_cap!) eats directly from room in 1 turn!
+        # Also test AgentToolbox accepts eat() for room floor food without carrying it.
+        vb = w.observe(b.id)
+        box = AgentToolbox(Request(b.id, [], {"view": vb, "events": [], "notes": {}}, -1, [], False), None)
+        self.assertTrue(box.call("eat", {"item": "ration"})["ok"])
+        ev_ok = turn(w, {b.id: Intent("eat", item="ration")})
+        self.assertFalse(b.is_exhausted)
+        self.assertEqual(w.places["annex"].items["ration"], 1)
+        self.assertTrue(any(e[0] == b.id and e[2] == "result" and "from room" in e[4] for e in ev_ok))
+        # Shock on tick 2 turned off atrium sustenance -> next tick a suffers normal decay!
+        self.assertFalse(w.places["atrium"].sustenance)
+        a_before = a.energy
+        turn(w, {})
+        self.assertEqual(a.energy, a_before - 2)

@@ -121,6 +121,7 @@
       ],
       "defense": 0.05,
       "comms": true,
+      "sustenance": true,
       "facility": {
         "kind": "harvest",
         "item": "supply_box",
@@ -147,6 +148,7 @@
       ],
       "defense": 0.05,
       "comms": true,
+      "sustenance": true,
       "facility": {
         "kind": "press",
         "copies_per_action": 3
@@ -222,6 +224,7 @@
       ],
       "defense": 0.4,
       "comms": true,
+      "sustenance": true,
       "facility": null,
       "regen": {},
       "initial_items": {
@@ -242,6 +245,7 @@
       ],
       "defense": 0,
       "comms": true,
+      "sustenance": true,
       "facility": {
         "kind": "harvest",
         "item": "supply_box",
@@ -286,6 +290,7 @@
       ],
       "defense": 0.25,
       "comms": true,
+      "sustenance": true,
       "facility": {
         "kind": "harvest",
         "item": "supply_box",
@@ -367,6 +372,7 @@
       ],
       "defense": 0.3,
       "comms": true,
+      "sustenance": true,
       "facility": {
         "kind": "harvest",
         "item": "supply_box",

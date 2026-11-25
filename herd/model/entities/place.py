@@ -37,6 +37,7 @@ class Place:
     regen: dict[str, dict] = field(default_factory=dict)
     last_summary: dict[str, list] = field(default_factory=room_summary)
     comms: bool = False
+    sustenance: bool = False
 
     @classmethod
     def create(cls, place_id: str, layout: dict) -> Place:
@@ -50,12 +51,14 @@ class Place:
             items=layout["initial_items"].copy(),
             regen=deepcopy(layout["regen"]),
             comms=bool(layout.get("comms", False)),
+            sustenance=bool(layout.get("sustenance", False)),
         )
 
     @classmethod
     def from_dict(cls, place_id: str, layout: dict, data: dict) -> Place:
         state = deepcopy(data)
         comms = bool(state.pop("comms", layout.get("comms", False)))
+        sustenance = bool(state.pop("sustenance", layout.get("sustenance", False)))
         return cls(
             place_id,
             layout["label"],
@@ -64,6 +67,7 @@ class Place:
             deepcopy(layout["facility"]),
             deepcopy(layout.get("pos")),
             comms=comms,
+            sustenance=sustenance,
             **state,
         )
 
@@ -76,4 +80,5 @@ class Place:
             regen=deepcopy(self.regen),
             last_summary=deepcopy(self.last_summary),
             comms=self.comms,
+            sustenance=self.sustenance,
         )

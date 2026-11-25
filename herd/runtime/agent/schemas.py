@@ -70,7 +70,7 @@ INTERNAL_SCHEMAS = [
 ]
 ACTION_SCHEMAS = [
     tool("wait", "Submit an action to wait in this room."),
-    tool("eat", "Submit an action to eat one carried edible item.", {"item": ID}),
+    tool("eat", "Submit an action to eat one edible item from your inventory or unguarded room stock.", {"item": ID}),
     tool("produce", "Use the local facility. At a press, target is a document you hold.", {"target": ID}),
     tool("take", "Pick up an item or document from the room.", {"item": ID, "qty": QTY}, ["item"]),
     tool(

@@ -140,6 +140,7 @@ def _snapshot_world(world: World, opening_places: dict[str, str] | None = None) 
             docs=pl.docs.copy(),
             board=list(pl.board),
             comms=pl.comms,
+            sustenance=pl.sustenance,
         )
         for pl_id, pl in world.places.items()
     }
@@ -389,6 +390,7 @@ class RunCache:
                     pos=v.get("pos"),
                     paths=v["paths"],
                     comms=v.get("comms", False),
+                    sustenance=v.get("sustenance", False),
                 )
                 for k, v in self.spec["places"].items()
             },

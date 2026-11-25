@@ -18,6 +18,22 @@ class NaturalClock:
                 person = world.people[actor]
                 if person.is_alive:
                     was_exhausted = person.energy == 0
+                    if world.places[person.place].sustenance:
+                        if person.energy < ctx.rules["max_energy"]:
+                            person.energy = min(ctx.rules["max_energy"], person.energy + 1)
+                            if was_exhausted and person.energy > 0:
+                                ctx.event(
+                                    actor,
+                                    "notice",
+                                    "world",
+                                    "【据点补给】你在常驻补给点得到照料，脱离了力竭失能状态。",
+                                )
+                        if (
+                            person.health < ctx.rules["max_health"]
+                            and person.energy > ctx.rules["max_energy"] // 2
+                        ):
+                            person.health += 1
+                        continue
                     person.energy = max(0, person.energy - world.energy_decay)
                     if person.energy == 0:
                         if not exhaust_mode:
@@ -95,5 +111,7 @@ class NaturalClock:
             documents.post(world.places[place], doc_id)
         elif kind == "comms_set":
             world.places[place].comms = event["enabled"]
+        elif kind == "sustenance_set":
+            world.places[place].sustenance = event["enabled"]
         if ctx.trace is not None:
             ctx.record("shock", kind=kind, place=place, detail=event.copy(), doc_id=doc_id)

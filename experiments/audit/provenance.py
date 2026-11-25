@@ -72,6 +72,7 @@ class Audit:
                 "carry_weight",
                 "carry_cap",
                 "room_comms",
+                "room_sustenance",
                 "can_remote_comm",
                 "contacts",
                 "near",

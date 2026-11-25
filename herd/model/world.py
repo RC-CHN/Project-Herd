@@ -64,7 +64,7 @@ class World:
         actors = data["people"].keys()
         present = defaultdict(set)
         for actor, state in data["people"].items():
-            if state["health"] > 0 and state["energy"] > 0 and state.get("size", 1) > 0:
+            if state["health"] > 0 and state.get("size", 1) > 0:
                 present[state["place"]].add(actor)
         dynamic_items = deepcopy(data.get("dynamic_items", {}))
         all_items = {**spec["items"], **dynamic_items} if dynamic_items else spec["items"]

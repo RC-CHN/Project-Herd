@@ -45,18 +45,41 @@ class EconomySystem:
 
     def eat(self, person, item):
         ctx = self.ctx
-        foods = [
+        inv_foods = [
             i
             for i in ctx.start[person.id].inv
             if ctx.items[i]["kind"] == "edible" and ctx.ledger.balance(person.id, i) > 0
         ]
-        item = item or next(iter(foods), "")
-        if item not in foods:
+        chosen = item or next(iter(inv_foods), "")
+        if chosen and chosen in inv_foods:
+            ctx.ledger.spend(person.id, chosen, 1)
+            restore = person.eat_restore(ctx.items[chosen]["energy_restore"])
+            person.energy = min(ctx.rules["max_energy"], person.energy + restore)
+            return f"ate {chosen}"
+        room = ctx.world.places[person.place]
+        room_foods = [
+            i
+            for i in sorted(room.items)
+            if room.items.get(i, 0) > 0 and i in ctx.items and ctx.items[i]["kind"] == "edible"
+        ]
+        chosen = item or next(iter(room_foods), "")
+        if not chosen or chosen not in room_foods:
             return "failed: food unavailable"
-        ctx.ledger.spend(person.id, item, 1)
-        restore = person.eat_restore(ctx.items[item]["energy_restore"])
+        if person.id in ctx.disrupted:
+            return "failed: disrupted by combat"
+        if self.gates is not None:
+            blockers = self.gates.effective_blockers(
+                self.gates.items_guards(room.id), person.id, ctx.start[person.id]
+            )
+            if blockers:
+                room.last_summary["blocked_takes"].append(dict(actor=person.id, item=chosen))
+                return f"blocked from eating room items by {len(blockers)} guards"
+        adjust(room.items, chosen, -1)
+        room.last_summary["taken"].append(dict(actor=person.id, item=chosen, qty=1))
+        ctx.transfer("eat_room", room.id, room.id, person.id, chosen, 1)
+        restore = person.eat_restore(ctx.items[chosen]["energy_restore"])
         person.energy = min(ctx.rules["max_energy"], person.energy + restore)
-        return f"ate {item}"
+        return f"ate {chosen} (from room)"
 
     def collect(self, person, intent):
         ctx = self.ctx
