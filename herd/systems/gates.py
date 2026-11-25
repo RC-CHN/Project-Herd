@@ -189,6 +189,8 @@ class GateSystem:
     def peaceful_moves(self, ctx):
         for actor, intent in ctx.actions("move"):
             place = ctx.start[actor].place
+            if self.world.people[actor].place != place:
+                continue
             if intent.target not in self.world.places[place].paths:
                 ctx.result(actor, "failed: unreachable place")
                 continue

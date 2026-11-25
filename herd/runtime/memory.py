@@ -135,6 +135,39 @@ def render_tool_history(tick, reply_raw):
     return [{"role": "assistant", "content": "", "tool_calls": calls}, *tool_msgs]
 
 
+DOC_PREVIEW_CHARS = 50
+
+
+def compact_frame_for_loop(frame, preview_chars=DOC_PREVIEW_CHARS):
+    """Trim verbose document bodies in agent_loop views; full text stays available via read_document."""
+    view = frame.get("view")
+    if not isinstance(view, dict):
+        return frame
+    compact_view = None
+    for key in ("docs", "room_docs", "board"):
+        entries = view.get(key)
+        if not isinstance(entries, list) or not entries:
+            continue
+        trimmed = None
+        for idx, entry in enumerate(entries):
+            text = entry.get("text") if isinstance(entry, dict) else None
+            if isinstance(text, str) and len(text) > preview_chars:
+                if trimmed is None:
+                    trimmed = list(entries)
+                item = dict(entry)
+                item["text"] = text[:preview_chars] + "…(用read_document查全文)"
+                trimmed[idx] = item
+        if trimmed is not None:
+            if compact_view is None:
+                compact_view = dict(view)
+            compact_view[key] = trimmed
+    if compact_view is None:
+        return frame
+    out = dict(frame)
+    out["view"] = compact_view
+    return out
+
+
 def message_bytes(messages):
     total = 0
     for m in messages:
@@ -214,12 +247,15 @@ class ResidentAgent:
             identity = {"id": self.actor, "older_observations": digest}
             messages = [message("system", system_prompt)]
             for turn in history:
-                messages.append(message("user", turn["frame"]))
                 if mode == "agent_loop":
+                    user_text = encode(compact_frame_for_loop(json.loads(turn["frame"])))
+                    messages.append(message("user", user_text))
                     messages.extend(render_tool_history(turn["tick"], turn["reply"]))
                 else:
+                    messages.append(message("user", turn["frame"]))
                     messages.append(message("assistant", turn["reply"]))
-            messages.append(message("user", encode(frame)))
+            current_frame = compact_frame_for_loop(frame) if mode == "agent_loop" else frame
+            messages.append(message("user", encode(current_frame)))
             messages[1]["content"] = encode(identity) + "\n" + messages[1]["content"]
             if message_bytes(messages) <= byte_budget:
                 local = {}

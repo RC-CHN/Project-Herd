@@ -99,7 +99,7 @@ python3 -m herd run --db /tmp/bayport.sqlite --backends backends.json --ticks 63
 | 剧本 ID | 名称 | 默认规模 | 核心结构特点 | 文件 |
 | :--- | :--- | :--- | :--- | :--- |
 | `citystate-coup` | 瓦尔登城邦危机 | 54 个体（纯 `size=1`） | 6 节点古典城邦、单一国玺、纯面对面与物理送信、风暴减产与寒潮耗能冲击 | [citystate-coup.json](herd/scenarios/citystate-coup.json) |
-| `bayport-crisis` | 白湾城宪政危机 | 57 Agent（19 个体 + 38 Pop，总人口 621） | 8 节点工业联邦首都、内阁密室与接见廊隔离、元老近卫/市政巡防/驻防正规军三层武装、三枚竞争印信、跨房通联与暗线搅局者 | [bayport-crisis.json](herd/scenarios/bayport-crisis.json) |
+| `bayport-crisis` | 白湾城宪政危机 | 56 Agent（20 个体 + 36 Pop，总人口 672） | 12 节点工业联邦首都与远郊驿道、内阁密室实物密账、元老近卫/市政巡防/本地驻军/远郊铁卫四层武装、三枚竞争印信、跨房通联与暗线搅局者 | [bayport-crisis.json](herd/scenarios/bayport-crisis.json) |
 
 ---
 
@@ -135,7 +135,7 @@ flowchart LR
 ### 2. 通道控制、交战规则（ROE）、兰开斯特战斗与永久减员
 - **`guard` 四种普世目标**：`path:<邻地>`（单向阻拦来自该邻地的进入者，不困住屋内离开者）、`path:*`（双向封锁全屋出入口并保护地面物品）、`items`（仅保护本屋地面物品与文书）、`person:<同地编号>`（贴身护卫）。放行条件可用分号组合 `allow:编号列表`、`seal:印信` 与 `known`（熟人）；仅当阻挡方总战力严格超过放行方时拦截生效。
 - **持久 ROE 与声明式 `force_modes`**：每个行动体持有持久交战档位 `roe`，可通过并行内部工具 `set_roe` 随时切换（同屋与路口均肉眼可见，切换记录见 `recent_room.roe_changes`）。剧本在 `rules.force_modes` 中声明档位物理参数（`severity`、`lethal_arms_scale`、`damage_scale`、`lethal`、兰开斯特指数 `lanchester_exp`、`rout_shock`、`casualty_rate`），武器支持 `nonlethal` 标记。
-- **`force` 强攻与 Pop 减员**：目标为 `path:<邻地>`、`items` 或 `person:<同地编号>`，冲突烈度取攻防双方中最高的 `roe`：非致命档位不致死、重武器折算受限；致命档位下致命武器全额生效、胜方战损遵循兰开斯特幂次衰减，且集体单元按伤亡率永久削减实有人数 `size`（区分伤亡溃散与人数归零全灭，休养仅恢复凝聚力 `health` 不复活阵亡者）。人物强攻胜出且败者存活时会缴械掉落一件武器或重物；战败负伤打断同轮取物与交付；在场旁观者均收到标明档位、升级者与伤亡数的 `combat_witness`。
+- **`force` 强攻、溃退与 Pop 减员**：目标为 `path:<邻地>`、`items` 或 `person:<同地编号>`，冲突烈度取攻防双方中最高的 `roe`：非致命档位不致死、重武器折算受限；致命档位下致命武器全额生效、胜方战损遵循兰开斯特幂次衰减，集体单元按伤亡率永久削减实有人数 `size`。战前未崩溃（`health > 1`）的集体单元被打崩凝聚力且有开放退路时，将以 `health=1` 强行溃退至相邻非敌方节点并向两地目击者播报伤亡与去向；若已重伤溃败再遭打击或无路可退则彻底散伙退场，人数归零则全灭（休养仅恢复凝聚力不复活阵亡者）。人物强攻胜出且败者存活时会缴械掉落一件武器或重物；战败负伤打断同轮取物与交付；在场旁观者均收到标明档位、升级者、伤亡与溃退去向的 `combat_witness`。
 
 ### 3. 通讯、文书与昼夜时钟
 - **面对面与跨房通讯**：`speech` 面向同桌成员（`near`）；`whisper` 面向 1~4 名同地对象，旁观者按人群规模与昼夜系数（`night_whisper_multiplier`）概率察觉。`contacts`、`near` 与 `others_in_room` 均附带多重有向关系标签 `rels`（如上级、部下、同袍、同僚、恩师、旧友、政敌等，局中新相识记为 `acquaintance`）。当独立个体或高组织度建制单元（`discipline >= 0.7`）身处有线通讯点（`comms: true`）或持有 `kind: "comm"` 便携通讯器时，可用 `whisper` 直接跨房联系 `contacts` 中的熟人（仅传口信、不可递交实物或验印，对方无通讯条件时返回无法接通；`size > 1` 且 `discipline < 0.7` 的自发群体只能靠现场交谈、代表中转或公墙传单动员）。

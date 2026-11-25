@@ -110,16 +110,37 @@ class CollectivesTests(PolityCase):
         )
         clash = next(e for e in trace if e["type"] == "combat")
         self.assertEqual(clash["winner"], "attackers")
-        # Undisciplined loser (0.2 -> 1.4x multiplier) takes >= 6 damage and disperses from combat.
+        # Undisciplined loser (0.2 -> 1.4x multiplier) takes >= 5 damage, suffers casualties, and routs to annex at hp=1.
         self.assertGreaterEqual(clash["damage"][crowd.id], 5)
-        self.assertFalse(crowd.is_alive)
+        self.assertTrue(crowd.is_alive)
+        self.assertEqual((crowd.place, crowd.health), ("annex", 1))
+        self.assertLess(crowd.size, crowd.initial_size)
+        self.assertEqual(clash["routed"].get(crowd.id), "annex")
         self.assertTrue(
             any(
                 e[2] == "notice"
                 and crowd.id in e[4]
                 and "casualties" in e[4]
-                and "dispersed (routed in combat)" in e[4]
+                and "routed from atrium to annex" in e[4]
                 for e in events
+            )
+        )
+        # Hitting an already-routed collective (opening health == 1) permanently disperses it.
+        unit.place = "annex"
+        events2 = turn(
+            w,
+            {
+                unit.id: Intent("force", f"person:{crowd.id}"),
+                crowd.id: Intent("wait"),
+            },
+        )
+        self.assertFalse(crowd.is_alive)
+        self.assertTrue(
+            any(
+                e[2] == "notice"
+                and crowd.id in e[4]
+                and "dispersed (routed in combat)" in e[4]
+                for e in events2
             )
         )
 
@@ -222,8 +243,8 @@ class CollectivesTests(PolityCase):
         spec = load("bayport-crisis")
         w = World.create(spec, spec["default_residents"], 42)
         counts = Counter(p.role for p in w.people.values())
-        self.assertEqual(len(w.people), 57)
-        self.assertEqual(sum(p.size for p in w.people.values()), 621)
+        self.assertEqual(len(w.people), 56)
+        self.assertEqual(sum(p.size for p in w.people.values()), 672)
         self.assertEqual(
             counts,
             dict(
@@ -234,6 +255,7 @@ class CollectivesTests(PolityCase):
                 envoy=2,
                 garrison_chief=1,
                 line_officer=2,
+                field_commander=1,
                 organizer=4,
                 journalist=4,
                 liaison=2,
@@ -241,7 +263,8 @@ class CollectivesTests(PolityCase):
                 student_bloc=8,
                 civic_crowd=14,
                 constabulary=6,
-                garrison_unit=8,
+                garrison_unit=4,
+                field_unit=2,
             ),
         )
         # Covert syndicate agent disguises public_tag while maintaining asymmetric cross-faction ties.
@@ -250,6 +273,20 @@ class CollectivesTests(PolityCase):
         self.assertEqual(len(agent.relations), 4)
         for peer_id, rels in agent.relations.items():
             self.assertNotEqual(rels, w.people[peer_id].rels_for(agent.id))
+        # Physical fiscal_ledger starts in hall; outer_garrison sits 4 hops from bridgeway via 3 relay posts.
+        self.assertEqual(w.places["hall"].items.get("fiscal_ledger"), 1)
+        self.assertEqual(spec["places"]["outer_garrison"]["paths"], ["highland_post"])
+        self.assertEqual(spec["places"]["highland_post"]["paths"], ["east_relay", "outer_garrison"])
+        self.assertEqual(spec["places"]["east_relay"]["paths"], ["outer_gate", "highland_post"])
+        self.assertEqual(spec["places"]["outer_gate"]["paths"], ["bridgeway", "east_relay"])
+        # Outer corps starts lethal with zero ties to Bayport civilians.
+        outer_cmd = next(p for p in w.people.values() if p.role == "field_commander")
+        outer_units = [p for p in w.people.values() if p.role == "field_unit"]
+        self.assertEqual(outer_cmd.roe, "lethal")
+        self.assertTrue(all(u.roe == "lethal" and u.size == 25 for u in outer_units))
+        self.assertTrue(
+            all(w.people[cid].role in ("councilor", "hardliner", "field_unit") for cid in outer_cmd.relations)
+        )
         # Verify three unique seals exist once each and combat power hierarchy matches design intent.
         for seal in ("cabinet_seal", "emergency_seal", "garrison_seal"):
             self.assertEqual(sum(p.inv.get(seal, 0) for p in w.people.values()), 1)
@@ -269,7 +306,7 @@ class CollectivesTests(PolityCase):
         self.assertEqual(spec["places"]["hall"]["paths"], ["antechamber"])
 
         # Full multi-tick scripted simulation + replay audit passes cleanly.
-        store = self.store(spec, count=57)
+        store = self.store(spec, count=56)
         sim = Simulation(store, Scripted(), window=0, keep=0)
         for _ in range(12):
             sim.step()
@@ -363,7 +400,7 @@ class CollectivesTests(PolityCase):
 
         # End-to-end Simulation + provenance whisper isolation audit with real scenario ties & remote calls!
         bay = load("bayport-crisis")
-        bay_store = self.store(bay, count=57, name="bayport")
+        bay_store = self.store(bay, count=56, name="bayport")
         bw = bay_store.world()
         hardliner = next(p for p in bw.people.values() if p.role == "hardliner")
         chief = next(p for p in bw.people.values() if p.role == "garrison_chief")
@@ -440,9 +477,32 @@ class CollectivesTests(PolityCase):
         self.assertNotIn("tool_calls", req_json.messages[2])
         self.assertEqual(json.loads(req_json.messages[2]["content"])["action"], "guard")
 
+        # Long documents in agent_loop views are compacted to previews while preserving full text in local/frame & prefix stability.
+        long_text = "甲" * 160
+        sim_doc = Simulation(
+            store,
+            Decisions(lambda a, v: dict(action="write", target="post", detail=long_text) if a == leader.id and v["tick"] == 2 else dict(action="wait")),
+            window=0,
+            keep=0,
+        )
+        sim_doc.step()
+        w3 = store.world()
+        req_loop3 = ResidentAgent(leader.id, "p").prepare(store, w3, 0, 0, 60000, mode="agent_loop")
+        req_json3 = ResidentAgent(leader.id, "p").prepare(store, w3, 0, 0, 60000, mode="json")
+        self.assertIn("用read_document查全文", req_loop3.messages[-1]["content"])
+        self.assertNotIn(long_text, req_loop3.messages[-1]["content"])
+        self.assertIn(long_text, req_json3.messages[-1]["content"])
+        self.assertEqual(req_loop3.frame["view"]["board"][0]["text"], long_text)
+        doc_id = w3.places[w3.people[leader.id].place].board[0]
+        self.assertEqual(req_loop3.local["documents"][doc_id]["text"], long_text)
+        sim_doc.step()
+        req_loop4 = ResidentAgent(leader.id, "p").prepare(store, store.world(), 0, 0, 60000, mode="agent_loop")
+        self.assertTrue(message_key(req_loop4.messages).startswith(message_key(req_loop3.messages[:-1])))
+        self.assertEqual(report(store.db)["audit"]["replay"], "passed")
+
     def test_multitag_directed_relations_merge_preserve_and_roundtrip(self):
         bay = load("bayport-crisis")
-        w = World.create(bay, 57, 42)
+        w = World.create(bay, 56, 42)
         conc = next(p for p in w.people.values() if p.role == "conciliator")
         hard = next(p for p in w.people.values() if p.role == "hardliner")
         elder = next(p for p in w.people.values() if p.role == "councilor")
@@ -485,7 +545,7 @@ class CollectivesTests(PolityCase):
         from herd.systems.gates import GateSystem
 
         bay = load("bayport-crisis")
-        store = self.store(bay, count=57, name="roe_test")
+        store = self.store(bay, count=56, name="roe_test")
         w = store.world()
 
         # 1. Exact Pop scale invariance: 4 x size=25 crowds == 1 x size=100 crowd in team_strength.
@@ -565,11 +625,19 @@ class CollectivesTests(PolityCase):
         self.assertEqual(clash_lethal["mode"], "lethal")
         self.assertEqual(clash_lethal["winner"], "attackers")
         self.assertEqual(clash_lethal["escalated_by"], [unit.id])
-        # Rifle company takes minimal Lanchester square-law damage while inflicting heavy casualties & dispersing crowds.
+        # Rifle company takes minimal Lanchester square-law damage while inflicting casualties & routing crowds off bridgeway!
         self.assertLessEqual(clash_lethal["damage"][unit.id], 2)
         self.assertGreater(sum(clash_lethal["casualties"][c.id] for c in crowds), 0)
-        self.assertTrue(any(not c.is_alive for c in crowds))
-        self.assertTrue(any("casualties" in e[4] and "dispersed" in e[4] for e in ev2 if e[2] == "notice"))
+        self.assertTrue(all(c.is_alive and c.health == 1 and c.place != "bridgeway" and c.place != "north_camp" for c in crowds))
+        self.assertTrue(all(c.id in clash_lethal["routed"] for c in crowds))
+        self.assertTrue(any("routed from bridgeway" in e[4] for e in ev2 if e[2] == "notice"))
+
+        # Second lethal hit on an already-routed crowd (opening health == 1) permanently disperses it!
+        hunted = crowds[0]
+        unit.place = hunted.place
+        ev_hunt = turn(w, {unit.id: Intent("force", f"person:{hunted.id}"), hunted.id: Intent("wait")})
+        self.assertFalse(hunted.is_alive)
+        self.assertTrue(any("dispersed (routed in combat)" in e[4] for e in ev_hunt if e[2] == "notice"))
 
         # 6. Depleted collective down to size=1 remains collective (immutable prompt, no remote comm for low-disc crowd).
         survivor = next(p for p in w.people.values() if p.role == "civic_crowd" and p.is_alive)

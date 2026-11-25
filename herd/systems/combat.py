@@ -140,6 +140,7 @@ class CombatSystem:
         casualty_rate = mode_spec["casualty_rate"]
         winner = "attackers" if won else "defenders"
         casualties = {}
+        routed = {}
         if ctx.trace is not None:
             damage, deaths = {}, []
             ctx.record(
@@ -154,6 +155,7 @@ class CombatSystem:
                 winner=winner,
                 damage=damage,
                 casualties=casualties,
+                routed=routed,
                 deaths=deaths,
             )
         for side, side_won in ((attackers, won), (defenders, not won)):
@@ -171,7 +173,8 @@ class CombatSystem:
                 lost_pop = 0
                 if lethal and hit > 0:
                     if person.is_collective:
-                        raw = round(person.size * (hit / ctx.rules["max_health"]) * casualty_rate)
+                        ratio = min(1.0, hit / ctx.rules["max_health"])
+                        raw = round(person.size * ratio * casualty_rate)
                         if hit >= 2 and casualty_rate > 0:
                             raw = max(1, raw)
                         lost_pop = min(person.size, raw)
@@ -188,6 +191,36 @@ class CombatSystem:
                 ctx.result(actor, msg)
                 if ctx.trace is not None:
                     damage[actor] = hit
+                if (
+                    not side_won
+                    and lethal
+                    and person.is_collective
+                    and person.health == 0
+                    and person.size > 0
+                    and person.energy > 0
+                    and ctx.start[actor].health > 1
+                ):
+                    dest = self._rout_exit(actor, kind, place, target)
+                    if dest is not None:
+                        old_place = person.place
+                        ctx.drop_guard(person)
+                        person.health = 1
+                        person.place = dest
+                        ctx.world.places[old_place].last_summary["left"].append(actor)
+                        ctx.world.places[dest].last_summary["entered"].append(actor)
+                        routed[actor] = dest
+                        ctx.result(
+                            actor,
+                            f"routed from {old_place} to {dest} (casualties {lost_pop}, remaining {person.size}, health 1)",
+                        )
+                        notice = (
+                            f"{actor} suffered {lost_pop} casualties and routed from {old_place} to {dest} (remaining {person.size})"
+                            if lost_pop
+                            else f"{actor} routed from {old_place} to {dest} (remaining {person.size})"
+                        )
+                        for witness in ctx.world.people.values():
+                            if witness.is_alive and witness.id != actor and witness.place in (old_place, dest):
+                                ctx.event(witness.id, "notice", "world", notice)
         visible_places = {place, target} if kind == "path" else {place}
         total_cas = sum(casualties.values())
         detail = (
@@ -197,6 +230,8 @@ class CombatSystem:
         )
         if total_cas:
             detail += f", casualties {total_cas}"
+        if routed:
+            detail += f", routed {','.join(f'{a}->{d}' for a, d in routed.items())}"
         for person in ctx.world.people.values():
             if person.is_alive and person.place in visible_places and person.id not in participants:
                 ctx.event(person.id, "combat_witness", attackers[0], detail)
@@ -207,3 +242,18 @@ class CombatSystem:
                 if ctx.trace is not None:
                     deaths.append(actor)
         return won
+
+    def _rout_exit(self, actor, kind, place, target):
+        ctx = self.ctx
+        origin = ctx.world.people[actor].place
+        avoid = ({place, target} - {origin}) if kind == "path" else set()
+        candidates = [
+            dest
+            for dest in ctx.world.places[origin].paths
+            if dest not in avoid
+            and not self.gates.effective_blockers(self.gates.edge_guards(origin, dest), actor, ctx.start[actor])
+        ]
+        if not candidates:
+            return None
+        pick = sample(f"rout/{ctx.world.seed}/{ctx.tick}/{actor}")
+        return candidates[min(len(candidates) - 1, int(pick * len(candidates)))]

@@ -3,11 +3,11 @@
   "id": "bayport-crisis",
   "title": "白湾城宪政危机",
   "start_date": "1894-05-01",
-  "default_residents": 57,
-  "briefing": "这里是海澜联邦首府白湾城，正值工业时代转型期。资深宪政法官病逝后，学院青年与南埠市民涌向钟楼广场，要求公开市政财政账目与彻查司法积弊；这直接触及执政厅核心派系的切身利害与政治生死。内阁密室与广场之间隔着执政厅接见廊，北岭营地的联邦驻防部队正在待命。钟楼广场没有补给设施，联邦印报馆掌有全城唯一的印刷复制设施，石桥大道是驻军进城的必经咽喉；联邦票券（scrip）是乱世保命与事后变现的硬筹码。",
+  "default_residents": 56,
+  "briefing": "这里是海澜联邦首府白湾城，正值工业时代转型期。资深宪政法官病逝后，学院青年与南埠市民涌向钟楼广场，要求公开市政财政账目与彻查司法积弊；一份记录挪用军费与压案黑幕的《市政财政密账》（fiscal_ledger）此刻正存放在内阁密室（hall）。内阁密室与广场之间隔着执政厅接见廊，北岭营地驻有本地联邦驻防部队，城外三座驿站之外还驻扎着听命于元老系统的远郊铁卫营。钟楼广场没有补给设施，联邦印报馆掌有全城唯一的印刷复制设施，石桥大道是驻军进城的必经咽喉；联邦票券（scrip）是乱世保命与事后变现的硬筹码。",
   "rules": {
     "contact_size": 8,
-    "board_slots": 16,
+    "board_slots": 8,
     "max_energy": 12,
     "max_health": 10,
     "base_energy_decay": 2,
@@ -23,7 +23,7 @@
     "offer_ttl": 2,
     "carry_cap": 12,
     "exertion_energy_cost": 1,
-    "write_energy_cost": 1,
+    "write_energy_cost": 3,
     "force_modes": {
       "push": {
         "label": "非致命推挤",
@@ -43,7 +43,7 @@
         "lethal": true,
         "lanchester_exp": 2.0,
         "rout_shock": 2.0,
-        "casualty_rate": 0.4
+        "casualty_rate": 0.25
       }
     }
   },
@@ -56,6 +56,11 @@
     },
     "scrip": {
       "label": "联邦票券",
+      "kind": "fungible",
+      "weight": 1
+    },
+    "fiscal_ledger": {
+      "label": "市政财政密账",
       "kind": "fungible",
       "weight": 1
     },
@@ -195,7 +200,8 @@
       "regen": {},
       "initial_items": {
         "supply_box": 14,
-        "scrip": 24
+        "scrip": 24,
+        "fiscal_ledger": 1
       }
     },
     "south_ward": {
@@ -234,7 +240,8 @@
       "paths": [
         "plaza",
         "south_ward",
-        "north_camp"
+        "north_camp",
+        "outer_gate"
       ],
       "defense": 0.2,
       "comms": false,
@@ -268,6 +275,87 @@
         "supply_box": 24,
         "rifle": 4
       }
+    },
+    "outer_gate": {
+      "label": "城郊关口",
+      "pos": [
+        0.74,
+        0.92
+      ],
+      "paths": [
+        "bridgeway",
+        "east_relay"
+      ],
+      "defense": 0.15,
+      "comms": false,
+      "facility": null,
+      "regen": {},
+      "initial_items": {
+        "supply_box": 6
+      }
+    },
+    "east_relay": {
+      "label": "东驿哨所",
+      "pos": [
+        0.86,
+        0.94
+      ],
+      "paths": [
+        "outer_gate",
+        "highland_post"
+      ],
+      "defense": 0.1,
+      "comms": false,
+      "facility": null,
+      "regen": {},
+      "initial_items": {
+        "supply_box": 8
+      }
+    },
+    "highland_post": {
+      "label": "高岭兵站",
+      "pos": [
+        0.95,
+        0.88
+      ],
+      "paths": [
+        "east_relay",
+        "outer_garrison"
+      ],
+      "defense": 0.15,
+      "comms": false,
+      "facility": null,
+      "regen": {},
+      "initial_items": {
+        "supply_box": 10
+      }
+    },
+    "outer_garrison": {
+      "label": "远郊铁卫营",
+      "pos": [
+        0.98,
+        0.68
+      ],
+      "paths": [
+        "highland_post"
+      ],
+      "defense": 0.3,
+      "comms": true,
+      "facility": {
+        "kind": "harvest",
+        "item": "supply_box",
+        "yield_per_action": 2
+      },
+      "regen": {
+        "supply_box": {
+          "rate": 12,
+          "cap": 36
+        }
+      },
+      "initial_items": {
+        "supply_box": 30,
+        "rifle": 2
+      }
     }
   },
   "groups": {
@@ -278,7 +366,7 @@
       "size": 1,
       "discipline": 1.0,
       "home": "hall",
-      "brief": "你是温和派执政官，掌管内阁议事印（cabinet_seal），驻于内阁密室（hall）。外人通常止步接见廊（antechamber），密室配有专线通讯与内阁幕僚。起草文书会消耗精力。",
+      "brief": "你是温和派执政官，掌管内阁议事印（cabinet_seal），驻于内阁密室（hall）。外人通常止步接见廊（antechamber），密室配有专线通讯与内阁幕僚；《市政财政密账》（fiscal_ledger）就在密室之中。起草文书消耗颇多精力。",
       "initial_energy": 12,
       "initial_health": 10,
       "initial_inv": {
@@ -287,7 +375,7 @@
         "cabinet_seal": 1
       },
       "archetypes": [
-        "你深知这是关乎政治生死的零和局：一旦强硬派与元老借武装力量压服局势，你就会被打成纵容动乱的罪人遭清算清洗。你想借改革民意压倒政敌、夺取内阁主导权，绝不天真退让或拱手交出筹码；面对你死我活的政争，你愿意采取一切务实甚至强硬的政治手段自保并胜出。"
+        "你深知这是关乎政治与人身生死的零和局：密室里就放着政敌最怕曝光的《市政财政密账》，而强硬派与元老随时可能动用武装彻底清洗你。你想借改革民意与实据压倒政敌、夺取内阁主导权，明白空泛礼貌挡不住刺刀，愿意采取一切果断甚至冒险的手段抢占先机、自保并胜出。"
       ]
     },
     "hardliner": {
@@ -297,7 +385,7 @@
       "size": 1,
       "discipline": 1.0,
       "home": "hall",
-      "brief": "你是强硬派执政官，掌管紧急治安令印（emergency_seal），驻于内阁密室（hall）。密室通常禁止外人擅入，配有专线通讯与内阁幕僚。起草文书会消耗精力。",
+      "brief": "你是强硬派执政官，掌管紧急治安令印（emergency_seal），驻于内阁密室（hall）。密室通常禁止外人擅入，配有专线通讯与内阁幕僚，可直通北岭营地与远郊铁卫营；《市政财政密账》（fiscal_ledger）此刻就在密室之中。起草文书消耗颇多精力。",
       "initial_energy": 12,
       "initial_health": 10,
       "initial_inv": {
@@ -306,7 +394,7 @@
         "emergency_seal": 1
       },
       "archetypes": [
-        "这是你的生死底线：一旦公开财政账目与彻查司法积弊落地，你与元老派系多年挪用军费与压案的黑幕就会彻底败露，你将身败名裂、入狱清算。因此你绝不向街头低头，绝不承认任何危及自身存亡的让步或表决；为保权力与身家性命，你不惜动用一切权谋与强力手段维系掌控。"
+        "这是你的生死死线：密室里的《市政财政密账》一旦外泄或查账落地，你与元老派系多年挪用军费与压案的黑幕就会铁证如山，你将立刻身败名裂、入狱处决。空泛的公文拉锯和表面体面救不了你的命——你坚信对街头或政敌示弱一寸就是死无葬身之地；为保权力与性命，你绝不忌讳撕破脸皮、动用铁腕清洗与致命流血镇压，宁可付出惨重伤亡也要把局势彻底压死。"
       ]
     },
     "councilor": {
@@ -316,7 +404,7 @@
       "size": 1,
       "discipline": 1.0,
       "home": "hall",
-      "brief": "你是退居幕后的资深参议元老，坐镇内阁密室（hall），直辖两支持枪的元老近卫（praetorian），且与北岭驻防总指挥官有多年提拔渊源。",
+      "brief": "你是退居幕后的资深参议元老，坐镇内阁密室（hall），直辖两支持枪元老近卫（praetorian），与北岭驻防总指挥官有提拔渊源，更在城外三座驿站之外握有一支只听你号令、毫无本地私交的远郊铁卫营（outer_garrison）。《市政财政密账》（fiscal_ledger）此刻就在密室之中。",
       "initial_energy": 12,
       "initial_health": 10,
       "initial_inv": {
@@ -324,7 +412,7 @@
         "scrip": 4
       },
       "archetypes": [
-        "你老辣冷酷，把派系安全与既有体制权威置于一切之上。请愿所指的查账与司法清查直接动摇你半生经营的根基，你绝不容忍街头倒逼内阁，也绝不受空泛程序束缚；谁若危及你的核心利益或越界失控，你会毫不留情地动用权威与手头武装定乾坤。"
+        "你老辣冷酷，一生从不信街头良心与空头公文，只信印信、枪杆子与铁腕威慑。密室里的《市政财政密账》关乎你半生基业与全派系生死，绝不容任何政敌或请愿者染指。你深知空耗时间只会让局面滑向不可收拾，优柔寡断就是自寻死路——当温和劝说与非致命推挤无法震慑失控局面或管住内部异己时，你完全有魄力下令近卫、本地驻军或远郊铁卫动用致命武力见血定局，宁可背负骂名也要稳住体制权威。"
       ]
     },
     "praetorian": {
@@ -346,7 +434,7 @@
       },
       "archetypes": [
         {
-          "text": "绝对死忠的元老私兵卫队，纪律森严、冷酷高效。只听参议元老本人的意志与指令，对执政厅其他派系保持礼貌戒备，对未经允许逼近或危及密室与元老利益者毫不留情。",
+          "text": "绝对死忠、冷血高效的元老私兵卫队。只听参议元老本人的意志与指令，对执政厅其他派系保持高度戒备；面对任何未经元老允许的闯入、夺物或反抗，绝不留情，一旦得令即以实弹（roe=lethal）果断镇压。",
           "weight": 2
         }
       ]
@@ -384,7 +472,7 @@
       "size": 1,
       "discipline": 1.0,
       "home": "north_camp",
-      "brief": "你是北岭营地驻防总指挥官，掌管城防调令印（garrison_seal）与便携电台（field_radio），统领八支步枪连队。全营默认交战规则为非致命推挤（roe=push），如需变更交战烈度可通过 set_roe 切换或向下传令。你曾受参议元老提拔（patron），同时在意军队荣誉与自身前途。",
+      "brief": "你是北岭营地驻防总指挥官，掌管城防调令印（garrison_seal）与便携电台（field_radio），统领四支满编步枪连队（各20人）。全营默认交战规则为非致命推挤（roe=push），如需升级致命强攻可通过 set_roe 切换或向下传令。你曾受参议元老提拔（patron），同时深知城外还有听命元老的远郊铁卫营。",
       "initial_energy": 12,
       "initial_health": 10,
       "initial_inv": {
@@ -394,7 +482,7 @@
         "field_radio": 1
       },
       "archetypes": [
-        "你精明审慎，极其看重最高权力的真实归属与政治站队。你感念参议元老的提拔之恩，若确认上峰稳控局势且有明确授权兜底，你愿意动用麾下武力维护秩序；但若高层撕裂、胜负未分，你绝不愿替输家背上血债，会先观望核实风向再做决断。"
+        "你精明审慎，极其看重最高权力的真实归属与自身兵权前途。你感念参议元老的提拔之恩，但也清楚若在关键时刻迟疑摆烂或被远郊外军取代，自己将彻底失势；一旦确认上峰决断已下、授权明确，你敢于动用麾下武力甚至升级实弹（lethal）果断清场，绝不优柔寡断。"
       ]
     },
     "line_officer": {
@@ -407,7 +495,7 @@
         "north_camp": 1,
         "bridgeway": 1
       },
-      "brief": "你是北岭驻防营的前线带队军官，随身带便携电台（field_radio），熟识同营袍泽并直辖四支步枪连队，负责执行营部部署与城防任务。",
+      "brief": "你是北岭驻防营的前线带队军官，随身带便携电台（field_radio），熟识同营袍泽并直辖两支步枪连队（各20人），负责执行营部部署与城防任务。",
       "initial_energy": 11,
       "initial_health": 10,
       "initial_inv": {
@@ -418,13 +506,33 @@
       },
       "archetypes": [
         {
-          "text": "你是铁血强硬的职业军人，轻视街头请愿，信奉军人天职就是坚决执行上峰与军令、以压倒性纪律和武力迅速平息混乱。",
+          "text": "你是铁血强硬的职业军人，轻视街头请愿与文官扯皮，信奉军人天职就是坚决执行上峰军令；你深信面对失控人墙，手软只会助长暴乱，一旦获得授权，敢于果断下令实弹强攻、以雷霆手段迅速清场。",
           "weight": 1
         },
         {
           "text": "你出身白湾本地、在南埠有旧交，内心强烈抗拒向无武装的本城市民动武；面对可疑命令或高层分裂时，乡情与良知常常压过盲从。",
           "weight": 1
         }
+      ]
+    },
+    "field_commander": {
+      "label": "远郊铁卫统领",
+      "public_tag": "远郊军官",
+      "exact_count": 1,
+      "size": 1,
+      "discipline": 1.0,
+      "default_roe": "lethal",
+      "home": "outer_garrison",
+      "brief": "你是远郊铁卫营（outer_garrison）统领，配制式步枪与便携电台（field_radio），直辖两支满编重装外地野战连（field_unit，各25人）。营地配有专线通讯，距城较远，需经高岭兵站、东驿哨所、城郊关口三座驿站方能抵近石桥大道；你受参议元老提拔，与白湾城本地无任何私交，默认交战规则为实弹戒备（roe=lethal），必要时可用 set_roe 调整。",
+      "initial_energy": 12,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 2,
+        "rifle": 1,
+        "field_radio": 1
+      },
+      "archetypes": [
+        "你是冷酷干练、只认最高权威与军功的外地职业悍将，对白湾城本地派系与街头情绪毫无怜悯与乡情牵绊。你深信宽容乱民只会毁掉秩序，一旦接到参议元老或强硬派的明确急调，便毫不迟疑地率部远程开拔，并敢于在受阻时直接动用致命武力破障清场，以战功换取接管首府防务的实权。"
       ]
     },
     "organizer": {
@@ -617,15 +725,15 @@
     "garrison_unit": {
       "label": "联邦驻防连队",
       "public_tag": "驻防连队",
-      "exact_count": 8,
-      "size": 10,
+      "exact_count": 4,
+      "size": 20,
       "discipline": 0.95,
       "home": "north_camp",
-      "brief": "你们是装备制式步枪（rifle）与便携电台（field_radio）的联邦正规驻防连队（size=10，训练度极高）。全连默认交战规则为非致命推挤（roe=push），若获上峰授权变更交战烈度可用 set_roe 切换。全营官兵互为同袍（known）。",
+      "brief": "你们是装备制式步枪（rifle）与便携电台（field_radio）的联邦正规驻防连队（size=20，训练度极高）。全连默认交战规则为非致命推挤（roe=push），若获上峰授权变更交战烈度可用 set_roe 切换。全营官兵互为同袍（known）。",
       "initial_energy": 10,
       "initial_health": 10,
       "initial_inv": {
-        "supply_box": 3,
+        "supply_box": 5,
         "rifle": 1,
         "field_radio": 1,
         "scrip": 2
@@ -633,11 +741,35 @@
       "archetypes": [
         {
           "text": "纪律严明的职业野战连队，视军令与直属长官命令为最高准则，一旦接到明确作战或清障命令便果断执行，不问政争是非。",
-          "weight": 5
+          "weight": 2
         },
         {
           "text": "训练有素但多出身周边乡里的连队，平日严守军纪，内心却对向无武装本城平民动武怀有抵触；上峰犹豫或政令冲突时往往倾向观望。",
-          "weight": 3
+          "weight": 2
+        }
+      ]
+    },
+    "field_unit": {
+      "label": "远郊铁卫野战连",
+      "public_tag": "远郊野战连",
+      "exact_count": 2,
+      "size": 25,
+      "discipline": 0.98,
+      "default_roe": "lethal",
+      "home": "outer_garrison",
+      "brief": "你们是从外省调驻远郊铁卫营（outer_garrison）的重装精锐野战连（size=25，训练度极高，配制式步枪、便携电台与行军补给箱）。你们与白湾本地市民毫无渊源，全连默认处于实弹戒备档位（roe=lethal），必要时可按统领指令用 set_roe 切换。全营互为同袍（known）。",
+      "initial_energy": 11,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 10,
+        "rifle": 1,
+        "field_radio": 1,
+        "scrip": 2
+      },
+      "archetypes": [
+        {
+          "text": "冷酷剽悍、绝对服从军令的外地野战精锐，对白湾城内政争与街头喊话毫无共情。只认远郊铁卫统领与参议元老的军令，一旦奉命开拔进城或遭遇阻拦，敢于以实弹压倒性火力铁腕清障，绝不手软。",
+          "weight": 2
         }
       ]
     }
@@ -959,6 +1091,42 @@
       "k": 1,
       "rel": "hall_leak",
       "reverse_rel": "trade_broker"
+    },
+    {
+      "from_group": "councilor",
+      "to_group": "field_commander",
+      "mode": "all",
+      "rel": "iron_general",
+      "reverse_rel": [
+        "patron",
+        "supreme_elder"
+      ]
+    },
+    {
+      "from_group": "hardliner",
+      "to_group": "field_commander",
+      "mode": "all",
+      "rel": "outer_commander",
+      "reverse_rel": "cabinet_hardliner"
+    },
+    {
+      "from_group": "field_commander",
+      "to_group": "field_unit",
+      "mode": "all",
+      "rel": [
+        "subordinate",
+        "comrade"
+      ],
+      "reverse_rel": [
+        "commander",
+        "comrade"
+      ]
+    },
+    {
+      "from_group": "field_unit",
+      "to_group": "field_unit",
+      "mode": "same_home",
+      "rel": "comrade"
     }
   ],
   "shocks": [
@@ -1022,6 +1190,8 @@
       "envoy",
       "garrison_chief",
       "garrison_unit",
+      "field_commander",
+      "field_unit",
       "student_bloc",
       "civic_crowd",
       "syndicate_agent"
@@ -1032,7 +1202,8 @@
       "plaza",
       "bridgeway",
       "press_hall",
-      "north_camp"
+      "north_camp",
+      "outer_garrison"
     ],
     "focal_seals": [
       "cabinet_seal",
