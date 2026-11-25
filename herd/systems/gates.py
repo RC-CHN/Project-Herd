@@ -3,6 +3,7 @@
 from collections import defaultdict
 
 from ..model.entities import GuardPosture
+from .context import EXHAUSTED_FAILURE
 
 
 class GateSystem:
@@ -150,18 +151,21 @@ class GateSystem:
             intent = ctx.intents.get(actor)
             posture = None
             if intent and intent.action == "guard":
-                posture = GuardPosture.try_parse(
-                    intent.target,
-                    intent.detail,
-                    valid_actors=self.world.people.keys(),
-                    items=ctx.items,
-                    paths=self.world.places[person.place].paths,
-                    present=present[person.place],
-                )
-                ctx.result(
-                    actor,
-                    f"guarding {posture.scope}" if posture else "failed: invalid guard target or pass",
-                )
+                if ctx.is_exhausted(actor):
+                    ctx.result(actor, EXHAUSTED_FAILURE)
+                else:
+                    posture = GuardPosture.try_parse(
+                        intent.target,
+                        intent.detail,
+                        valid_actors=self.world.people.keys(),
+                        items=ctx.items,
+                        paths=self.world.places[person.place].paths,
+                        present=present[person.place],
+                    )
+                    ctx.result(
+                        actor,
+                        f"guarding {posture.scope}" if posture else "failed: invalid guard target or pass",
+                    )
             if person.posture and (not posture or person.posture.scope != posture.scope):
                 ctx.drop_guard(person)
             person.posture = posture
@@ -188,6 +192,9 @@ class GateSystem:
 
     def peaceful_moves(self, ctx):
         for actor, intent in ctx.actions("move"):
+            if ctx.is_exhausted(actor):
+                ctx.result(actor, EXHAUSTED_FAILURE)
+                continue
             place = ctx.start[actor].place
             if self.world.people[actor].place != place:
                 continue

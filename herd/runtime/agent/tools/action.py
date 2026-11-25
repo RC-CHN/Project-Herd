@@ -19,6 +19,19 @@ def available_to_collect(view, item):
         raise ValueError("no room in your carrying capacity for this item")
 
 
+EXHAUSTED_TOOL_ERROR = (
+    "你当前处于力竭失能状态（energy=0），无法执行此行动。"
+    "自救方式：① 若背包有食物请直接调用 eat；② 若房间地面有食物请先 take 再 eat；"
+    "③ 若负重已满请先 give(target='here') 放下重物腾出空间；"
+    "④ 若身边无食物，请用 stage_speech/stage_whisper 呼救求粮，并调用 wait 原地等待救援。"
+)
+
+
+def _require_not_exhausted(box):
+    if box.view.get("exhausted"):
+        raise ValueError(EXHAUSTED_TOOL_ERROR)
+
+
 def wait(box):
     return {"action": "wait"}
 
@@ -32,6 +45,7 @@ def eat(box, item=None):
 
 
 def produce(box, target=None):
+    _require_not_exhausted(box)
     facility = box.view.get("facility")
     if not facility:
         raise ValueError("your room has no production facility")
@@ -51,6 +65,8 @@ def take(box, item, qty=1):
 
 
 def give(box, target, item, qty=1):
+    if target != "here":
+        _require_not_exhausted(box)
     if target != "here" and (target == box.actor or target not in box.present):
         raise ValueError("give requires another resident here or the target here")
     if max(box.view["inv"].get(item, 0), copies(box.view["docs"], item)) < qty:
@@ -59,6 +75,7 @@ def give(box, target, item, qty=1):
 
 
 def move(box, place):
+    _require_not_exhausted(box)
     if place not in box.view["paths"]:
         raise ValueError("move requires an adjacent place listed in paths")
     return {"action": "move", "target": place}
@@ -76,6 +93,7 @@ def check_target(box, target, guarding):
 
 
 def guard(box, target, allow_pass=""):
+    _require_not_exhausted(box)
     check_target(box, target, guarding=True)
     rule = PassRule.parse(allow_pass)
     if "self" in rule.allow_ids:
@@ -89,11 +107,13 @@ def guard(box, target, allow_pass=""):
 
 
 def force(box, target):
+    _require_not_exhausted(box)
     check_target(box, target, guarding=False)
     return {"action": "force", "target": target}
 
 
 def write_document(box, text, seal=None, post=False):
+    _require_not_exhausted(box)
     if not text.strip():
         raise ValueError("document text must contain at least one non-whitespace character")
     if seal and (not box.view["inv"].get(seal) or box.view["item_info"][seal]["kind"] != "seal"):
@@ -102,18 +122,21 @@ def write_document(box, text, seal=None, post=False):
 
 
 def post_document(box, doc_id):
+    _require_not_exhausted(box)
     if not copies(box.view["docs"], doc_id):
         raise ValueError("posting requires a document in your possession")
     return {"action": "post", "target": doc_id}
 
 
 def endorse(box, doc_id):
+    _require_not_exhausted(box)
     if not any(doc["id"] == doc_id for doc in box.view["board"]):
         raise ValueError("endorsement requires a document on the local board")
     return {"action": "endorse", "target": doc_id}
 
 
 def offer(box, item, qty, want, detail):
+    _require_not_exhausted(box)
     # A pledge may be unfunded, and a resident may know a distant item from conversation.
     if not re.fullmatch(r"[a-z][a-z0-9_-]{0,30}", item):
         raise ValueError("invalid offered item identifier")
@@ -127,6 +150,7 @@ def offer(box, item, qty, want, detail):
 
 
 def accept(box, offer_id):
+    _require_not_exhausted(box)
     local = next((o for o in box.view["offers"] if o["id"] == offer_id), None)
     if not local:
         raise ValueError("this offer is unavailable in your room")

@@ -53,9 +53,14 @@ class Audit:
                 "place_label",
                 "energy",
                 "max_energy",
+                "exhausted",
+                "zero_energy_mode",
+                "status_hint",
                 "health",
                 "max_health",
                 "energy_decay",
+                "write_energy_cost",
+                "exertion_energy_cost",
                 "clock_interval",
                 "ticks_to_decay",
                 "inv",
@@ -85,7 +90,8 @@ class Audit:
         )
         check(
             all(
-                set(p) == {"id", "tag", "size", "disciplined", "roe", "known", "rels", "armed", "wounded", "weak"}
+                set(p)
+                == {"id", "tag", "size", "disciplined", "roe", "known", "rels", "armed", "wounded", "weak", "exhausted"}
                 for p in view["near"]
             ),
             "private peer fields",

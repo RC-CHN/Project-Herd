@@ -28,6 +28,9 @@
     "exertion_energy_cost": 1,
     "write_energy_cost": 3,
     "body_weight": 6,
+    "zero_energy_mode": "exhaust",
+    "starvation_health_loss": 0,
+    "collective_starvation_health_loss": 2,
     "force_modes": {
       "push": {
         "label": "非致命推挤",

@@ -60,6 +60,7 @@ def observe(world, actor_id: str, index) -> dict:
                     armed=peer.armed(items),
                     wounded=peer.health < rules["max_health"],
                     weak=peer.energy <= rules["low_energy_threshold"],
+                    exhausted=peer.energy == 0,
                 )
             )
     others_in_room = []
@@ -93,7 +94,9 @@ def observe(world, actor_id: str, index) -> dict:
     ]
     interval = rules["clock_interval"]
     day, time_of_day, _ = diurnal(world.tick, interval)
-    return dict(
+    zero_energy_mode = rules.get("zero_energy_mode", "fatal")
+    is_exhausted = me.energy == 0 and zero_energy_mode == "exhaust"
+    view = dict(
         tick=world.tick,
         day=day,
         time_of_day=time_of_day,
@@ -111,9 +114,13 @@ def observe(world, actor_id: str, index) -> dict:
         place_label=room.label,
         energy=me.energy,
         max_energy=rules["max_energy"],
+        exhausted=is_exhausted,
+        zero_energy_mode=zero_energy_mode,
         health=me.health,
         max_health=rules["max_health"],
         energy_decay=world.energy_decay,
+        write_energy_cost=rules.get("write_energy_cost", 0),
+        exertion_energy_cost=rules.get("exertion_energy_cost", 0),
         clock_interval=interval,
         ticks_to_decay=interval - world.tick % interval,
         inv=me.inv.copy(),
@@ -143,6 +150,14 @@ def observe(world, actor_id: str, index) -> dict:
         own_posture=me.posture.to_dict() if me.posture else None,
         recent_room=deepcopy(room.last_summary),
     )
+    if is_exhausted:
+        view["status_hint"] = (
+            "你已力竭失能（energy=0）：无法移动、强攻、值守、采集、向他人交付、撰文或交易。"
+            "自救方式：① 若背包有食物请直接 eat；② 若房间地面有食物请先 take 再 eat；"
+            "③ 若负重已满请先 give(target='here') 放下重物腾出空间；"
+            "④ 若身边无食物，请用发言或私语向同屋人或通讯熟人求粮，并用 wait 原地等待救援。"
+        )
+    return view
 
 
 def local_context(world, actor_id: str, index) -> dict:

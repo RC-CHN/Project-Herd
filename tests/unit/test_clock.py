@@ -159,3 +159,89 @@ class ClockTests(unittest.TestCase):
         self.assertEqual((w.observe("r000")["day"], w.observe("r000")["time_of_day"]), (1, "夜晚"))
         night_events = turn(w, {"r000": Intent("wait", whisper_to="r001", whisper="night chat")})
         self.assertFalse(any(e[2] == "spotted_whisper" for e in night_events))
+
+    def test_exhaustion_mode_incapacitation_self_rescue_and_kv_safe_tools(self):
+        from herd.runtime.agent.schemas import TOOL_SCHEMAS
+        from herd.runtime.agent.toolbox import AgentToolbox
+        from herd.runtime.memory import Request
+
+        spec = fixture()
+        spec["rules"].update(
+            clock_interval=1,
+            base_energy_decay=2,
+            write_energy_cost=3,
+            exertion_energy_cost=1,
+            zero_energy_mode="exhaust",
+            starvation_health_loss=0,
+            collective_starvation_health_loss=2,
+        )
+        spec["places"]["atrium"]["initial_items"] = {"ration": 2}
+        spec["groups"]["crowd"] = {**spec["groups"]["circle"], "size": 10, "discipline": 0.4, "exact_count": 1}
+        w = World.create(spec, 4, 7)
+        indiv, helper = [p for p in w.people.values() if not p.is_collective][:2]
+        crowd = next(p for p in w.people.values() if p.is_collective)
+        indiv.energy = 1
+        indiv.inv = {"token": 2}
+        helper.energy = 10
+        crowd.energy = 1
+        crowd.health = 2
+
+        # Opening view discloses energy costs and zero_energy_mode.
+        v0 = w.observe(indiv.id)
+        self.assertEqual(v0["write_energy_cost"], 3)
+        self.assertEqual(v0["exertion_energy_cost"], 1)
+        self.assertEqual(v0["zero_energy_mode"], "exhaust")
+        self.assertFalse(v0["exhausted"])
+        self.assertNotIn("status_hint", v0)
+
+        # Tick 0: indiv guards, then clock decays energy -> 0: indiv enters exhaustion (alive!), crowd disperses.
+        events = turn(w, {indiv.id: Intent("guard", "path:*")})
+        self.assertTrue(indiv.is_alive)
+        self.assertTrue(indiv.is_exhausted)
+        self.assertEqual(indiv.energy, 0)
+        self.assertEqual(indiv.health, spec["rules"]["max_health"])
+        self.assertIsNone(indiv.posture)
+        self.assertIn(indiv.id, w.active_residents())
+        self.assertTrue(any(e[0] == indiv.id and e[2] == "notice" and "力竭失能" in e[4] for e in events))
+        self.assertTrue(any(e[0] == helper.id and e[2] == "notice" and "目击力竭" in e[4] for e in events))
+        self.assertFalse(crowd.is_alive)
+        self.assertTrue(any(e[0] == crowd.id and e[2] == "death" and e[4] == "starvation" for e in events))
+
+        # Exhausted view shows exhausted=True, status_hint, and peer sees exhausted=True in near.
+        ve = w.observe(indiv.id)
+        self.assertTrue(ve["exhausted"])
+        self.assertIn("自救方式", ve["status_hint"])
+        helper_near = {p["id"]: p for p in w.observe(helper.id)["near"]}
+        self.assertTrue(helper_near[indiv.id]["exhausted"])
+
+        # KV-safe tool check: TOOL_SCHEMAS stays identical, while calling blocked tools returns ok=False.
+        req = Request(indiv.id, [], {"view": ve, "events": [], "notes": {}}, -1, [], False)
+        box = AgentToolbox(req, None)
+        self.assertGreater(len(TOOL_SCHEMAS), 0)
+        for bad_name, bad_args in (
+            ("move", {"place": "annex"}),
+            ("guard", {"target": "path:*", "allow_pass": "none"}),
+            ("force", {"target": f"person:{helper.id}"}),
+            ("write_document", {"text": "help"}),
+            ("give", {"target": helper.id, "item": "token", "qty": 1}),
+        ):
+            res = box.call(bad_name, bad_args)
+            self.assertFalse(res["ok"], f"{bad_name} should fail when exhausted")
+            self.assertIn("自救方式", res["error"])
+        # Dropping to ground ('here') and take/wait stay allowed in toolbox.
+        res_drop = box.call("give", {"target": "here", "item": "token", "qty": 1})
+        self.assertTrue(res_drop["ok"])
+
+        # Settlement engine also rejects blocked actions and allows take + eat self-rescue.
+        ev_block = turn(w, {indiv.id: Intent("move", "annex", speech="救命，给我口吃的！")})
+        self.assertEqual(indiv.place, "atrium")
+        self.assertTrue(any(e[0] == indiv.id and e[2] == "result" and "exhausted" in e[4] for e in ev_block))
+        self.assertTrue(any(e[0] == helper.id and e[2] == "speech" and "救命" in e[4] for e in ev_block))
+
+        # Self-rescue: take ration from floor on Tick 2, eat on Tick 3 -> recovers from exhaustion!
+        turn(w, {indiv.id: Intent("take", item="ration", qty="1")})
+        self.assertEqual(indiv.inv.get("ration"), 1)
+        ev_eat = turn(w, {indiv.id: Intent("eat", item="ration")})
+        self.assertFalse(indiv.is_exhausted)
+        self.assertGreater(indiv.energy, 0)
+        self.assertTrue(any(e[0] == indiv.id and e[2] == "notice" and "体力恢复" in e[4] for e in ev_eat))

@@ -56,7 +56,11 @@ class Person:
 
     @property
     def is_alive(self) -> bool:
-        return self.health > 0 and self.energy > 0 and self.size > 0
+        return self.health > 0 and self.size > 0
+
+    @property
+    def is_exhausted(self) -> bool:
+        return self.is_alive and self.energy == 0
 
     def armed(self, items: dict) -> bool:
         return any(qty > 0 and items[item]["kind"] == "arms" for item, qty in self.inv.items())
@@ -110,7 +114,7 @@ class Person:
             energy, health = state.energy, state.health
         lethal_scale = mode_spec["lethal_arms_scale"] if mode_spec else 1.0
         best = self.arms_bonus(items, state, lethal_scale)
-        vigor = 1.0 if energy > rules["low_energy_threshold"] else 0.5
+        vigor = 1.0 if energy > rules["low_energy_threshold"] else (0.2 if energy == 0 else 0.5)
         return (1.0 + best) * vigor * (health / rules["max_health"]) * (1.0 + terrain_defense)
 
     def combat_power(

@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 
-from .context import adjust, sample
+from .context import EXHAUSTED_FAILURE, adjust, sample
 
 
 class CombatSystem:
@@ -14,6 +14,9 @@ class CombatSystem:
         ctx = self.ctx
         paths, items_teams, persons = defaultdict(list), defaultdict(list), defaultdict(list)
         for actor, intent in ctx.actions("force"):
+            if ctx.is_exhausted(actor):
+                ctx.result(actor, EXHAUSTED_FAILURE)
+                continue
             place = ctx.start[actor].place
             if intent.target == "items":
                 items_teams[place].append(actor)
@@ -183,6 +186,12 @@ class CombatSystem:
                 floor_hp = 0 if lethal else 1
                 person.health = max(floor_hp, person.health - hit)
                 person.energy = max(0 if lethal else 1, person.energy - 1)
+                fatal_zero = ctx.rules.get("zero_energy_mode", "fatal") == "fatal"
+                if lethal and person.energy == 0:
+                    if fatal_zero:
+                        person.health = 0
+                    elif person.is_alive and ctx.start[actor].energy > 0:
+                        ctx.enter_exhaustion(person)
                 lost_pop = 0
                 if lethal and hit > 0:
                     if person.is_collective:

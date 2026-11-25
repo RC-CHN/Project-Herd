@@ -1,7 +1,7 @@
 """A document's identity survives printing, physical handoff, posting and endorsement."""
 
 from ..model.entities import Document
-from .context import adjust
+from .context import EXHAUSTED_FAILURE, adjust
 
 
 class DocumentSystem:
@@ -10,6 +10,9 @@ class DocumentSystem:
 
     def run(self):
         for actor, intent in self.ctx.actions("write", "post", "endorse"):
+            if self.ctx.is_exhausted(actor):
+                self.ctx.result(actor, EXHAUSTED_FAILURE)
+                continue
             self.ctx.result(actor, self.act(actor, intent))
 
     def act(self, actor, intent):

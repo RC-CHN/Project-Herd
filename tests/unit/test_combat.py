@@ -184,7 +184,7 @@ class CombatTests(PolityCase):
         self.assertTrue(any(neighbors[a]["wounded"] for a in ("r000", "r001", "r002")))
         self.assertEqual(
             set(neighbors["r000"]),
-            {"id", "tag", "size", "disciplined", "roe", "known", "rels", "armed", "wounded", "weak"},
+            {"id", "tag", "size", "disciplined", "roe", "known", "rels", "armed", "wounded", "weak", "exhausted"},
         )
         self.assertEqual(view["guards"]["persons"]["r001"]["armed_count"], 0)
 

@@ -358,6 +358,9 @@ def validate_polity(spec):
     rules.setdefault("exertion_energy_cost", 0)
     rules.setdefault("write_energy_cost", 0)
     rules.setdefault("body_weight", 6)
+    rules.setdefault("zero_energy_mode", "fatal")
+    rules.setdefault("starvation_health_loss", 0)
+    rules.setdefault("collective_starvation_health_loss", 2)
     rules.setdefault("night_whisper_multiplier", 1.0)
     rules.setdefault("force_modes", deepcopy(DEFAULT_FORCE_MODES))
     positive = "contact_size board_slots max_energy max_health whisper_detect_ref_crowd offer_ttl clock_interval carry_cap"
@@ -365,14 +368,25 @@ def validate_polity(spec):
     keys(
         rules,
         positive
-        + " base_energy_decay low_energy_threshold exertion_energy_cost write_energy_cost body_weight combat_damage_scale force_modes "
+        + " base_energy_decay low_energy_threshold exertion_energy_cost write_energy_cost body_weight"
+        + " zero_energy_mode starvation_health_loss collective_starvation_health_loss"
+        + " combat_damage_scale force_modes "
         + probabilities,
         "rules",
     )
     for field in positive.split():
         integer(rules[field], 1, field)
-    for field in ("base_energy_decay", "low_energy_threshold", "exertion_energy_cost", "write_energy_cost", "body_weight"):
+    for field in (
+        "base_energy_decay",
+        "low_energy_threshold",
+        "exertion_energy_cost",
+        "write_energy_cost",
+        "body_weight",
+        "starvation_health_loss",
+        "collective_starvation_health_loss",
+    ):
         integer(rules[field], 0, field)
+    reference(rules["zero_energy_mode"], ("fatal", "exhaust"), "rules.zero_energy_mode")
     number(rules["combat_damage_scale"], 0, math.inf, "combat_damage_scale")
     validate_force_modes(rules["force_modes"])
     for field in probabilities.split():

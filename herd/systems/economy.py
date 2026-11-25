@@ -1,7 +1,7 @@
 """Local collection, consumption, delivery and bilateral exchange."""
 
 from ..model.entities import Offer
-from .context import adjust
+from .context import EXHAUSTED_FAILURE, adjust
 
 
 CAPACITY_FAILURE = "failed: carry capacity exceeded"
@@ -17,8 +17,17 @@ class EconomySystem:
         ctx = self.ctx
         for actor, intent in ctx.actions("eat", "take", "produce", "give", "accept", "wait"):
             person = ctx.world.people[actor]
+            if ctx.is_exhausted(actor) and not (
+                intent.action in ("eat", "take", "wait")
+                or (intent.action == "give" and intent.target == "here")
+            ):
+                ctx.result(actor, EXHAUSTED_FAILURE)
+                continue
             if intent.action == "eat":
+                was_exhausted = person.energy == 0
                 result = self.eat(person, intent.item)
+                if was_exhausted and person.energy > 0:
+                    ctx.event(actor, "notice", "world", "【体力恢复】你进食后脱离了力竭失能状态，已恢复行动能力。")
             elif intent.action == "give":
                 result = self.give(person, intent)
             elif intent.action == "accept":
@@ -29,6 +38,9 @@ class EconomySystem:
                 result = self.collect(person, intent)
             ctx.result(actor, result)
         for actor, intent in ctx.actions("offer"):
+            if ctx.is_exhausted(actor):
+                ctx.result(actor, EXHAUSTED_FAILURE)
+                continue
             ctx.result(actor, self.offer(actor, intent))
 
     def eat(self, person, item):

@@ -12,13 +12,36 @@ class NaturalClock:
     def run(self, gates, documents):
         ctx = self.ctx
         world = ctx.world
+        exhaust_mode = ctx.rules.get("zero_energy_mode", "fatal") == "exhaust"
         if (ctx.tick + 1) % ctx.rules["clock_interval"] == 0:
             for actor in ctx.order:
                 person = world.people[actor]
                 if person.is_alive:
+                    was_exhausted = person.energy == 0
                     person.energy = max(0, person.energy - world.energy_decay)
                     if person.energy == 0:
-                        ctx.die(person, "starvation")
+                        if not exhaust_mode:
+                            ctx.die(person, "starvation")
+                        else:
+                            ctx.drop_guard(person)
+                            loss = (
+                                ctx.rules.get("collective_starvation_health_loss", 2)
+                                if person.is_collective
+                                else ctx.rules.get("starvation_health_loss", 0)
+                            )
+                            if loss > 0:
+                                person.health = max(0, person.health - loss)
+                            if not person.is_alive:
+                                ctx.die(person, "starvation")
+                            elif not was_exhausted:
+                                ctx.enter_exhaustion(person)
+                            elif loss > 0:
+                                ctx.event(
+                                    actor,
+                                    "notice",
+                                    "world",
+                                    f"【持续饥疲】你仍处于力竭失能状态，健康/凝聚力下降 {loss}（当前 {person.health}/{ctx.rules['max_health']}）。",
+                                )
                     elif (
                         person.health < ctx.rules["max_health"]
                         and person.energy > ctx.rules["max_energy"] // 2

@@ -128,6 +128,7 @@ def _snapshot_world(world: World, opening_places: dict[str, str] | None = None) 
             size=person.size,
             roe=person.roe,
             alive=person.is_alive,
+            exhausted=person.is_exhausted,
             inv=person.inv.copy(),
             docs=person.docs.copy(),
             posture=person.posture.to_dict() if person.posture else None,

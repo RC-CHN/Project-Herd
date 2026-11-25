@@ -7,6 +7,9 @@ from hashlib import sha256
 from ..model.entities import room_summary
 
 
+EXHAUSTED_FAILURE = "failed: exhausted (energy 0; only eat, take, wait, or give to here allowed)"
+
+
 def sample(key):
     return int.from_bytes(sha256(key.encode()).digest()[:4], "big") / 2**32
 
@@ -71,6 +74,22 @@ class RoundContext:
         self.events = []
         for room in world.places.values():
             room.last_summary = room_summary()
+
+    def is_exhausted(self, actor):
+        return self.rules.get("zero_energy_mode", "fatal") == "exhaust" and self.start[actor].energy == 0
+
+    def enter_exhaustion(self, person):
+        self.drop_guard(person)
+        self.event(
+            person.id,
+            "notice",
+            "world",
+            "【力竭失能】你体力耗尽，已进入力竭失能状态，自动退出值守；恢复体力前无法移动、强攻、值守、采集、向他人交付、撰文或交易，仅可在原地进食（eat）、拾取身边物资（take）、放下负重（give here）、等待（wait）以及发言/私语求助。",
+        )
+        who = f"{person.id}({person.tag})"
+        for witness in self.world.people.values():
+            if witness.is_alive and witness.id != person.id and witness.place == person.place:
+                self.event(witness.id, "notice", "world", f"【目击力竭】{who} 体力耗尽，倒地失能。")
 
     def actions(self, *kinds):
         for actor in self.actors:
