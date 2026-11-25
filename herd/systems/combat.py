@@ -179,6 +179,8 @@ class CombatSystem:
                             raw = max(1, raw)
                         lost_pop = min(person.size, raw)
                         person.size -= lost_pop
+                        if lost_pop > 0:
+                            ctx.leave_body(person.place, f"body_t{ctx.tick}_{person.id}", person, "combat", lost_pop)
                     elif not person.is_alive:
                         lost_pop = 1
                         person.size = 0
@@ -213,28 +215,42 @@ class CombatSystem:
                             actor,
                             f"routed from {old_place} to {dest} (casualties {lost_pop}, remaining {person.size}, health 1)",
                         )
+                        who = f"{actor}({person.tag})"
                         notice = (
-                            f"{actor} suffered {lost_pop} casualties and routed from {old_place} to {dest} (remaining {person.size})"
+                            f"【目击溃退】{who} suffered {lost_pop} casualties and routed from {old_place} to {dest} (remaining {person.size})"
                             if lost_pop
-                            else f"{actor} routed from {old_place} to {dest} (remaining {person.size})"
+                            else f"【目击溃退】{who} routed from {old_place} to {dest} (remaining {person.size})"
                         )
                         for witness in ctx.world.people.values():
                             if witness.is_alive and witness.id != actor and witness.place in (old_place, dest):
                                 ctx.event(witness.id, "notice", "world", notice)
         visible_places = {place, target} if kind == "path" else {place}
         total_cas = sum(casualties.values())
+        tag_of = lambda a: f"{a}({ctx.world.people[a].tag})"
         detail = (
-            f"{','.join(attackers)} forced {scope} "
+            f"{','.join(tag_of(a) for a in attackers)} forced {scope} "
             f"({mode_spec['label']}, roe={mode_id} by {','.join(escalators)}) "
-            f"against {','.join(defenders)}: {winner} won"
+            f"against {','.join(tag_of(d) for d in defenders)}: {winner} won"
         )
         if total_cas:
             detail += f", casualties {total_cas}"
         if routed:
-            detail += f", routed {','.join(f'{a}->{d}' for a, d in routed.items())}"
+            detail += f", routed {','.join(f'{tag_of(a)}->{d}' for a, d in routed.items())}"
         for person in ctx.world.people.values():
             if person.is_alive and person.place in visible_places and person.id not in participants:
                 ctx.event(person.id, "combat_witness", attackers[0], detail)
+        if lethal:
+            sound = mode_spec.get("sound") or f"剧烈的{mode_spec['label']}声响与惨叫"
+            adjacent_sources = defaultdict(list)
+            for vp in sorted(visible_places):
+                for neighbor in ctx.world.places[vp].paths:
+                    if neighbor not in visible_places:
+                        adjacent_sources[neighbor].append(f"{ctx.world.places[vp].label}({vp})")
+            for adj_place, srcs in adjacent_sources.items():
+                heard = f"【邻室动静】从 {'、'.join(srcs)} 方向传来{sound}！"
+                for person in ctx.world.people.values():
+                    if person.is_alive and person.place == adj_place:
+                        ctx.event(person.id, "notice", "world", heard)
         for actor in participants:
             person = ctx.world.people[actor]
             if not person.is_alive:

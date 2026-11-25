@@ -9,7 +9,7 @@ def observe(world, actor_id: str, index) -> dict:
     me = world.people[actor_id]
     room = world.places[me.place]
     known = set(me.contacts) | {actor_id}
-    rules, items = world.spec["rules"], world.spec["items"]
+    rules, items = world.spec["rules"], world.all_items()
     held_items = me.inv.keys() | room.items.keys()
     if room.facility and "item" in room.facility:
         held_items.add(room.facility["item"])
@@ -160,7 +160,7 @@ def local_context(world, actor_id: str, index) -> dict:
         )
     return {
         "present": sorted(index.present[room.id]),
-        "can_remote_comm": person.can_remote_comm(room.comms, world.spec["items"]),
+        "can_remote_comm": person.can_remote_comm(room.comms, world.all_items()),
         "contacts": list(person.contacts),
         "documents": documents,
     }

@@ -66,7 +66,7 @@ def replay(db, output):
         opening = {a: w.people[a].place for a in w.active_residents()}
         opening_comms = {
             a: (
-                w.people[a].can_remote_comm(w.places[w.people[a].place].comms, w.spec["items"]),
+                w.people[a].can_remote_comm(w.places[w.people[a].place].comms, w.all_items()),
                 set(w.people[a].contacts),
             )
             for a in opening

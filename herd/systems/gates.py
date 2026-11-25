@@ -64,7 +64,7 @@ class GateSystem:
             alpha = 0.3 + 0.6 * person.discipline
             defense = world.places[person.place].defense if terrain else 0.0
             quality = person.combat_quality(
-                world.spec["items"],
+                world.all_items(),
                 world.spec["rules"],
                 opening[actor] if opening else None,
                 mode_spec=mode_spec,
@@ -115,7 +115,7 @@ class GateSystem:
             return dict(
                 count=len(guards),
                 total_size=sum(world.people[g].size for g in guards),
-                armed_count=sum(world.people[g].armed(world.spec["items"]) for g in guards),
+                armed_count=sum(world.people[g].armed(world.all_items()) for g in guards),
                 max_roe=max((guard_roe(g) for g in guards), key=lambda m: (modes[m]["severity"], m), default=None),
                 known_guards=[g for g in guards if g in known],
             )

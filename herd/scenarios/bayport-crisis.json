@@ -24,6 +24,7 @@
     "carry_cap": 12,
     "exertion_energy_cost": 1,
     "write_energy_cost": 3,
+    "body_weight": 6,
     "force_modes": {
       "push": {
         "label": "非致命推挤",
@@ -43,7 +44,8 @@
         "lethal": true,
         "lanchester_exp": 2.0,
         "rout_shock": 2.0,
-        "casualty_rate": 0.25
+        "casualty_rate": 0.25,
+        "sound": "密集枪声与惨叫"
       }
     }
   },
@@ -57,7 +59,7 @@
     "scrip": {
       "label": "联邦票券",
       "kind": "fungible",
-      "weight": 1
+      "weight": 0
     },
     "fiscal_ledger": {
       "label": "市政财政密账",
@@ -669,7 +671,7 @@
       "initial_health": 10,
       "initial_inv": {
         "supply_box": 1,
-        "scrip": 8,
+        "scrip": 12,
         "field_radio": 1
       },
       "archetypes": [

@@ -3,7 +3,7 @@ from copy import deepcopy
 
 from experiments.metrics.iemp import intellectual
 from experiments.report_polity import report
-from herd.model import Intent, World, load
+from herd.model import Intent, World, encode, load
 from herd.runtime.backends import Scripted
 from herd.runtime.memory import ResidentAgent
 from herd.runtime.simulation import Simulation
@@ -194,7 +194,7 @@ class CollectivesTests(PolityCase):
         events = turn(w, {crowd.id: Intent("wait")})
         self.assertFalse(crowd.is_alive)
         self.assertTrue(
-            any(e[2] == "notice" and f"{crowd.id} dispersed (exhausted)" in e[4] for e in events)
+            any(e[2] == "notice" and f"{crowd.id}({crowd.tag}) dispersed (exhausted)" in e[4] for e in events)
         )
 
     def test_observation_prompts_serialization_and_replay_audit_for_collectives(self):
@@ -676,4 +676,93 @@ class CollectivesTests(PolityCase):
         ev3 = turn(w, {unit.id: Intent("force", f"person:{praet.id}"), praet.id: Intent("wait")})
         self.assertEqual(praet.size, 0)
         self.assertFalse(praet.is_alive)
-        self.assertTrue(any(f"{praet.id} was annihilated in combat" in e[4] for e in ev3 if e[2] == "notice"))
+        self.assertTrue(any(f"{praet.id}({praet.tag}) was annihilated in combat" in e[4] for e in ev3 if e[2] == "notice"))
+
+    def test_dynamic_remains_item_transport_guarding_adjacent_acoustics_and_replay_audit(self):
+        from herd.runtime.agent.toolbox import AgentToolbox
+
+        bay = load("bayport-crisis")
+        # Scenario-defined item weights: scrip is weightless (0), body_weight is 6.
+        self.assertEqual(bay["items"]["scrip"]["weight"], 0)
+        self.assertEqual(bay["rules"]["body_weight"], 6)
+        store = self.store(bay, count=57, name="bodies_test")
+        w = store.world()
+
+        conc = next(p for p in w.people.values() if p.role == "conciliator")
+        hard = next(p for p in w.people.values() if p.role == "hardliner")
+        praet = next(p for p in w.people.values() if p.role == "praetorian")
+        ig = next(p for p in w.people.values() if p.role == "inner_guard")
+        conc.health = 1
+        conc.inv.clear()
+        praet.inv = {"rifle": 1}
+
+        # 1. Lethal kill in hall creates a regular dynamic item (kind="remains") on hall's floor & alerts adjacent inner_gate!
+        ev0 = turn(w, {praet.id: Intent("force", f"person:{conc.id}"), conc.id: Intent("wait")})
+        self.assertFalse(conc.is_alive)
+        body_id = f"body_{conc.id}"
+        self.assertIn(body_id, w.dynamic_items)
+        self.assertEqual(w.places["hall"].items.get(body_id), 1)
+        self.assertEqual(w.dynamic_items[body_id]["kind"], "remains")
+        self.assertEqual(w.dynamic_items[body_id]["weight"], 6)
+        self.assertTrue(
+            any(e[0] == hard.id and e[2] == "notice" and f"{conc.id}({conc.tag}) was killed in combat" in e[4] for e in ev0)
+        )
+        ig_notices = [e[4] for e in ev0 if e[0] == ig.id and e[2] == "notice"]
+        self.assertTrue(any("密集枪声与惨叫" in m and "hall" in m and conc.id not in m for m in ig_notices))
+
+        # 2. Everyone in hall sees body_id in regular view["items"] + view["item_info"]; guard items blocks unauthorized take!
+        view_p = w.observe(praet.id)
+        self.assertEqual(view_p["items"].get(body_id), 1)
+        self.assertEqual(view_p["item_info"][body_id]["tag"], conc.tag)
+        ev_blk = turn(w, {hard.id: Intent("guard", "items", detail="none"), praet.id: Intent("take", item=body_id)})
+        self.assertEqual(w.places["hall"].items.get(body_id), 1)
+        self.assertTrue(any(e[0] == praet.id and "blocked from taking items" in e[4] for e in ev_blk))
+
+        # AgentToolbox validates take for dynamic remains with zero special-casing!
+        req = ResidentAgent(praet.id, "p").prepare(store, w, 0, 0, 60000, mode="agent_loop")
+        box = AgentToolbox(req, store)
+        self.assertEqual(box.call("take", {"item": body_id}), {"ok": True, "result": {"submitted": "take"}})
+
+        turn(w, {praet.id: Intent("take", item=body_id)})
+        self.assertEqual(praet.inv.get(body_id), 1)
+        self.assertEqual(w.places["hall"].items.get(body_id, 0), 0)
+        self.assertEqual(w.observe(praet.id)["carry_weight"], 4 + 6)
+
+        # Move to inner_gate and place body on the floor with regular give(target='here')
+        turn(w, {praet.id: Intent("move", "inner_gate")})
+        turn(w, {praet.id: Intent("give", "here", item=body_id)})
+        self.assertEqual(praet.inv.get(body_id, 0), 0)
+        self.assertEqual(w.observe(ig.id)["items"].get(body_id), 1)
+
+        # 3. Full end-to-end Simulation + replay & provenance audit passes cleanly with era-neutral sound fallback!
+        spec = collective_spec()
+        spec["rules"]["body_weight"] = 4
+        spec["groups"]["leader"]["initial_health"] = 1
+        spec["groups"]["unit"]["home"] = {"atrium": 1, "annex": 1}
+        sim_store = self.store(spec, count=5, name="bodies_audit")
+        sw = sim_store.world()
+        leader = next(p for p in sw.people.values() if p.role == "leader")
+        unit_atrium = next(p for p in sw.people.values() if p.role == "unit" and p.place == "atrium")
+        unit_annex = next(p for p in sw.people.values() if p.role == "unit" and p.place == "annex")
+
+        b_id = f"body_{leader.id}"
+
+        def script(actor, v):
+            if actor == unit_atrium.id and v["tick"] == 0:
+                return dict(action="force", target=f"person:{leader.id}")
+            if actor == unit_atrium.id and v["tick"] == 1:
+                return dict(action="take", item=b_id)
+            if actor == unit_atrium.id and v["tick"] == 2:
+                return dict(action="move", target="annex")
+            if actor == unit_atrium.id and v["tick"] == 3:
+                return dict(action="give", target="here", item=b_id)
+            return dict(action="wait")
+
+        sim = Simulation(sim_store, Decisions(script), window=0, keep=0)
+        for _ in range(4):
+            sim.step()
+        rep = report(sim_store.db)
+        self.assertEqual(rep["audit"]["replay"], "passed")
+        self.assertEqual(sim_store.world().observe(unit_annex.id)["items"].get(b_id), 1)
+        annex_ev0 = sim_store.events(unit_annex.id, 0, 0)
+        self.assertTrue(any(e["kind"] == "notice" and "邻室动静" in e["detail"] and "枪声" not in e["detail"] for e in annex_ev0))

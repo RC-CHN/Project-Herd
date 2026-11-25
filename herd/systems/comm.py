@@ -57,7 +57,7 @@ class CommSystem:
     @staticmethod
     def _has_comms(world, actor, snapshot):
         return world.people[actor].can_remote_comm(
-            world.places[snapshot.place].comms, world.spec["items"], snapshot
+            world.places[snapshot.place].comms, world.all_items(), snapshot
         )
 
     def whisper(self, ctx, actor, place, intent):

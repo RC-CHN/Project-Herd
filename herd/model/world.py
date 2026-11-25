@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .entities import Document, Offer, Person, Place
 from .intent import Intent
@@ -25,6 +25,12 @@ class World:
     people: dict[str, Person]
     documents: dict[str, Document]
     offers: dict[str, Offer]
+    dynamic_items: dict[str, dict] = field(default_factory=dict)
+
+    def all_items(self) -> dict:
+        if not self.dynamic_items:
+            return self.spec["items"]
+        return {**self.spec["items"], **self.dynamic_items}
 
     @classmethod
     def create(cls, spec, count: int | None, seed: int) -> World:
@@ -60,6 +66,8 @@ class World:
         for actor, state in data["people"].items():
             if state["health"] > 0 and state["energy"] > 0 and state.get("size", 1) > 0:
                 present[state["place"]].add(actor)
+        dynamic_items = deepcopy(data.get("dynamic_items", {}))
+        all_items = {**spec["items"], **dynamic_items} if dynamic_items else spec["items"]
         people = {
             actor: Person.from_dict(
                 actor,
@@ -67,7 +75,7 @@ class World:
                 valid_actors=actors,
                 present=present[state["place"]],
                 paths=places[state["place"]].paths,
-                items=spec["items"],
+                items=all_items,
             )
             for actor, state in data["people"].items()
         }
@@ -83,6 +91,7 @@ class World:
             people,
             documents,
             offers,
+            dynamic_items,
         )
 
     def to_dict(self) -> dict:
@@ -96,6 +105,7 @@ class World:
             people={a: person.to_dict() for a, person in self.people.items()},
             documents={d: doc.to_dict() for d, doc in self.documents.items()},
             offers={o: offer.to_dict() for o, offer in self.offers.items()},
+            dynamic_items=deepcopy(self.dynamic_items),
         )
 
     def active_residents(self) -> list[str]:

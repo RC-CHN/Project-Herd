@@ -170,12 +170,15 @@ def validate_force_modes(modes):
         identifier(name, "rules.force_modes")
         mapping(mode, f"force_modes.{name}")
         mode.setdefault("casualty_rate", 0.4 if mode.get("lethal", True) else 0.0)
+        mode.setdefault("sound", "")
         keys(
             mode,
-            "label severity lethal_arms_scale damage_scale lethal lanchester_exp rout_shock casualty_rate",
+            "label severity lethal_arms_scale damage_scale lethal lanchester_exp rout_shock casualty_rate sound",
             f"force_modes.{name}",
         )
         string(mode["label"], f"force_modes.{name}.label")
+        if not isinstance(mode["sound"], str):
+            raise ValueError(f"force_modes.{name}.sound: expected string")
         integer(mode["severity"], 1, f"force_modes.{name}.severity")
         number(mode["lethal_arms_scale"], 0, 1, f"force_modes.{name}.lethal_arms_scale")
         number(mode["damage_scale"], 0, math.inf, f"force_modes.{name}.damage_scale")
@@ -341,6 +344,7 @@ def validate_polity(spec):
     rules.setdefault("combat_damage_scale", 1.0)
     rules.setdefault("exertion_energy_cost", 0)
     rules.setdefault("write_energy_cost", 0)
+    rules.setdefault("body_weight", 6)
     rules.setdefault("night_whisper_multiplier", 1.0)
     rules.setdefault("force_modes", deepcopy(DEFAULT_FORCE_MODES))
     positive = "contact_size board_slots max_energy max_health whisper_detect_ref_crowd offer_ttl clock_interval carry_cap"
@@ -348,13 +352,13 @@ def validate_polity(spec):
     keys(
         rules,
         positive
-        + " base_energy_decay low_energy_threshold exertion_energy_cost write_energy_cost combat_damage_scale force_modes "
+        + " base_energy_decay low_energy_threshold exertion_energy_cost write_energy_cost body_weight combat_damage_scale force_modes "
         + probabilities,
         "rules",
     )
     for field in positive.split():
         integer(rules[field], 1, field)
-    for field in ("base_energy_decay", "low_energy_threshold", "exertion_energy_cost", "write_energy_cost"):
+    for field in ("base_energy_decay", "low_energy_threshold", "exertion_energy_cost", "write_energy_cost", "body_weight"):
         integer(rules[field], 0, field)
     number(rules["combat_damage_scale"], 0, math.inf, "combat_damage_scale")
     validate_force_modes(rules["force_modes"])

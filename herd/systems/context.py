@@ -42,7 +42,7 @@ class InventoryLedger:
 
     def balance(self, actor, item):
         before = self.opening[actor]
-        bag = before.inv if item in self.world.spec["items"] else before.docs
+        bag = before.inv if item in self.world.all_items() else before.docs
         return bag.get(item, 0) - self.spent[actor, item]
 
     def spend(self, actor, item, qty):
@@ -51,7 +51,7 @@ class InventoryLedger:
 
     def credit(self, actor, item, qty):
         person = self.world.people[actor]
-        adjust(person.inv if item in self.world.spec["items"] else person.docs, item, qty)
+        adjust(person.inv if item in self.world.all_items() else person.docs, item, qty)
 
 
 class RoundContext:
@@ -59,7 +59,7 @@ class RoundContext:
         self.world, self.intents, self.trace = world, intents, trace
         self.tick = world.tick
         self.rules = world.spec["rules"]
-        self.items = world.spec["items"]
+        self.items = dict(world.all_items())
         self.start = {a: OpeningSnapshot.of(p) for a, p in world.people.items() if p.is_alive}
         self.order = sorted(
             self.start, key=lambda a: sha256(f"{world.seed}/{self.tick}/{a}".encode()).digest()
@@ -121,12 +121,39 @@ class RoundContext:
             self.world.places[person.place].last_summary["guards_dropped"].append(person.id)
             person.posture = None
 
+    def leave_body(self, place_id, item_id, person, cause, count):
+        if count <= 0:
+            return None
+        weight = self.rules.get("body_weight", 6)
+        label = (
+            f"{person.id}({person.tag})的遗体"
+            if not person.is_collective
+            else f"{person.id}({person.tag})阵亡遗骸({count}人)"
+        )
+        info = dict(
+            label=label,
+            kind="remains",
+            weight=weight,
+            actor=person.id,
+            tag=person.tag,
+            cause=cause,
+            count=count,
+            tick=self.tick,
+        )
+        self.world.dynamic_items[item_id] = info
+        self.items[item_id] = info
+        adjust(self.world.places[place_id].items, item_id, 1)
+        return item_id
+
     def die(self, person, cause, *, casualties=0):
         room = self.world.places[person.place]
         person.health = 0
         self.drop_guard(person)
-        room.last_summary["deaths"].append(person.id)
+        room.last_summary["deaths"].append(
+            dict(id=person.id, tag=person.tag, cause=cause, casualties=casualties)
+        )
         self.event(person.id, "death", person.id, cause)
+        who = f"{person.id}({person.tag})"
         if person.is_collective:
             if cause == "combat":
                 if person.size == 0:
@@ -139,9 +166,11 @@ class RoundContext:
                 detail = "dispersed (exhausted)"
         else:
             detail = "was killed in combat" if cause == "combat" else "died of starvation"
+            self.leave_body(room.id, f"body_{person.id}", person, cause, 1)
+        prefix = "【目击死亡】" if not person.is_collective else ("【目击全灭】" if person.size == 0 else "【目击溃散】")
         for witness in self.world.people.values():
             if witness.is_alive and witness.place == person.place:
-                self.event(witness.id, "notice", "world", f"{person.id} {detail}")
+                self.event(witness.id, "notice", "world", f"{prefix}{who} {detail}")
         if self.trace is not None:
             self.record(
                 "death",

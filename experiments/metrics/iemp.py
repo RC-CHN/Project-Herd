@@ -78,7 +78,7 @@ def intellectual(world: World, trace):
 
 def economic(world: World, trace):
     spec, people = world.spec, world.people
-    groups, items = spec["groups"], spec["items"]
+    groups, items = spec["groups"], world.all_items()
     room_items = {place: {k: room.items.get(k, 0) for k in items} for place, room in world.places.items()}
     holdings = {g: Counter(dict.fromkeys(items, 0)) for g in groups}
     energies = {g: [] for g in groups}
