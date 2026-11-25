@@ -1,0 +1,28 @@
+/* Theme Pack: Cold-War Tactical Ops Terminal */
+[data-theme="coldwar-ops"] {
+  --bg: #060b08;
+  --bg-stage: #09120d;
+  --paper: #0d1913;
+  --paper-soft: #12231a;
+  --paper-note: #142117;
+  --border: #1e3f2d;
+  --border-gold: rgba(57, 217, 138, 0.5);
+  --text: #d7f5e4;
+  --text-dim: #73a68c;
+  --text-faint: #46705a;
+  --accent: #f0b429;
+  --accent-soft: rgba(240, 180, 41, 0.14);
+  --blood: #ff5252;
+  --blood-soft: rgba(255, 82, 82, 0.15);
+  --whisper: #39d98a;
+  --whisper-bg: rgba(12, 39, 25, 0.78);
+  --spy: #d386ff;
+  --ok: #39d98a;
+  --font-serif: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-sans: ui-monospace, "SFMono-Regular", "PingFang SC", monospace;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --map-bg: radial-gradient(circle at 50% 50%, rgba(20, 62, 40, 0.35), rgba(4, 9, 6, 0.98)),
+    repeating-linear-gradient(0deg, rgba(57, 217, 138, 0.05) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(90deg, rgba(57, 217, 138, 0.05) 0 1px, transparent 1px 28px);
+  --radius: 3px;
+}

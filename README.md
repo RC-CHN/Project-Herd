@@ -33,6 +33,9 @@ python3 -m herd stats --db /tmp/citystate.sqlite
 python3 -m herd replay --db /tmp/citystate.sqlite
 python3 -m experiments.report_polity /tmp/citystate.sqlite --export-trace /tmp/citystate.jsonl
 
+# 启动零依赖实时故事剧场 WebUI（支持直播轮询、人物 POV 追剧与时代主题包）
+python3 -m herd serve --runs runs --port 8765
+
 # 运行全部单元测试与集成测试
 python3 -m unittest discover -s tests -v
 ```

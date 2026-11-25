@@ -2,6 +2,9 @@
   "engine": "polity-v1",
   "id": "citystate-coup",
   "title": "瓦尔登城邦危机",
+  "theme": {
+    "preset": "classical-parchment"
+  },
   "start_date": "1524-03-01",
   "default_residents": 54,
   "briefing": "瓦尔登城邦靠海运和农市供粮。居民可以当面交谈，物资由人携带，文书可在公墙阅读。人们正在商议城中的储备与日常分配。",

@@ -1,0 +1,27 @@
+/* Theme Pack: Classical Parchment & Wax Seal */
+[data-theme="classical-parchment"] {
+  --bg: #e9dec9;
+  --bg-stage: #efe6d4;
+  --paper: #faf4e6;
+  --paper-soft: #f2e8d4;
+  --paper-note: #f5eedb;
+  --border: #cfc0a0;
+  --border-gold: rgba(154, 96, 36, 0.55);
+  --text: #271e14;
+  --text-dim: #6c5b46;
+  --text-faint: #98866d;
+  --accent: #9a5d1f;
+  --accent-soft: rgba(154, 93, 31, 0.12);
+  --blood: #a82820;
+  --blood-soft: rgba(168, 40, 32, 0.11);
+  --whisper: #266075;
+  --whisper-bg: rgba(226, 236, 238, 0.72);
+  --spy: #7d398e;
+  --ok: #366e4a;
+  --font-serif: "Noto Serif SC", "Songti SC", "Kaiti SC", Georgia, serif;
+  --font-sans: "Noto Serif SC", "Songti SC", "PingFang SC", serif;
+  --font-mono: ui-monospace, Menlo, Consolas, monospace;
+  --map-bg: radial-gradient(circle at 50% 45%, rgba(255, 250, 238, 0.9), rgba(224, 209, 180, 0.98)),
+    repeating-linear-gradient(45deg, rgba(130, 98, 56, 0.03) 0 2px, transparent 2px 20px);
+  --radius: 12px;
+}

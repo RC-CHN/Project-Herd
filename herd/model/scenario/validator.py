@@ -321,14 +321,27 @@ def validate_schedule(spec):
 
 
 def validate_polity(spec):
-    for field, default in (("ties", []), ("shocks", []), ("analysis_markers", {})):
+    for field, default in (("ties", []), ("shocks", []), ("analysis_markers", {}), ("theme", {})):
         spec.setdefault(field, default)
     keys(
         spec,
         "engine id title start_date default_residents briefing rules places groups items ties shocks "
-        "notices sources assumptions analysis_markers",
+        "notices sources assumptions analysis_markers theme",
         "scenario",
     )
+    theme = spec["theme"]
+    if isinstance(theme, str):
+        string(theme, "theme")
+    elif isinstance(theme, dict):
+        if "preset" in theme:
+            string(theme["preset"], "theme.preset")
+        for sub in ("palette", "group_colors"):
+            if sub in theme:
+                for k, v in mapping(theme[sub], f"theme.{sub}").items():
+                    string(k, f"theme.{sub}")
+                    string(v, f"theme.{sub}.{k}")
+    else:
+        raise ValueError("theme: expected string preset or object")
     identifier(spec["id"], "id")
     for field in ("title", "start_date", "briefing"):
         string(spec[field], field)

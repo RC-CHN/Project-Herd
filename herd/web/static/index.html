@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="maritime-1894">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Project Herd — 剧场编年史观测台</title>
+<link rel="stylesheet" href="/themes/maritime-1894.css" />
+<link rel="stylesheet" href="/themes/classical-parchment.css" />
+<link rel="stylesheet" href="/themes/coldwar-ops.css" />
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<div class="shell">
+  <header class="masthead">
+    <div class="masthead-left">
+      <div class="masthead-title" id="scenarioTitle">Project Herd</div>
+      <div class="masthead-era" id="eraSubtitle">连接实况中…</div>
+    </div>
+
+    <div class="mode-switch">
+      <button class="active" id="modeChronicle">🎭 全城分场剧场</button>
+      <button id="modePov">📖 人物 POV 追剧</button>
+    </div>
+
+    <div class="masthead-right">
+      <select class="sel" id="runSel" title="切换存档"></select>
+      <select class="sel" id="themeSel" title="主题包（默认自动跟随剧本）">
+        <option value="maritime-1894">1894 航海剧场</option>
+        <option value="classical-parchment">古典羊皮卷轴</option>
+        <option value="coldwar-ops">冷战密档终端</option>
+      </select>
+      <button class="icon-btn live-on" id="liveBtn" title="实时轮询并自动跟随最新一幕">
+        <i class="live-dot"></i><span>LIVE</span>
+      </button>
+      <button class="icon-btn" id="labToggle">🔬 幕后数据</button>
+    </div>
+  </header>
+
+  <main class="theatre-main">
+    <section class="stage-pane">
+      <div class="stage-header">
+        <div class="stage-caption" id="stageCaption">舞台聚光灯 <span>点击场景或房间切镜</span></div>
+        <button class="fog-pill" id="fogBtn" title="按当前 POV 角色过滤局部信息">👁️ 上帝视角</button>
+      </div>
+
+      <svg class="stage-svg" id="stageSvg" viewBox="0 0 640 560" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <marker id="mRadio" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--whisper)"></path>
+          </marker>
+          <marker id="mRout" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--blood)"></path>
+          </marker>
+          <marker id="mMove" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--accent)"></path>
+          </marker>
+        </defs>
+        <g id="gRoads"></g>
+        <g id="gNodes"></g>
+        <g id="gArcs"></g>
+      </svg>
+
+      <div class="stage-cast-strip">
+        <div class="cast-label">
+          <span>人物快速追剧（点任一角色查看TA的个人 POV）</span>
+          <span id="aliveSummary"></span>
+        </div>
+        <div class="cast-pills" id="castPills"></div>
+      </div>
+    </section>
+
+    <section class="story-pane">
+      <div class="story-scroll" id="storyScroll">
+        <div class="chapter-banner"><div class="chapter-heading">正在连接本地存档…</div></div>
+      </div>
+    </section>
+
+    <aside class="lab-drawer" id="labDrawer">
+      <div class="lab-head">
+        <span>🔬 幕后科研与引擎指标</span>
+        <button id="labClose" style="padding:2px 8px;font-size:11px;">关闭</button>
+      </div>
+      <div class="lab-body" id="labBody"></div>
+    </aside>
+  </main>
+
+  <footer class="filmstrip">
+    <div class="strip-ctrl">
+      <button id="btnPrev">← 上轮</button>
+      <button id="btnPlay">▶ 播放</button>
+      <button id="btnNext">下轮 →</button>
+    </div>
+    <div class="strip-ticks" id="stripTicks"></div>
+    <div class="live-box">
+      <div class="live-row">
+        <span id="liveLabel">实况状态</span>
+        <span id="liveStage" style="color:var(--ok);">—</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" id="liveBar" style="width:0%"></div></div>
+    </div>
+  </footer>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>

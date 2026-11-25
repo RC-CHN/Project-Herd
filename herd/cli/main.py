@@ -67,6 +67,11 @@ def build_parser():
     fork.add_argument("--to", type=Path, required=True)
     inspect = sub.add_parser("inspect")
     inspect.add_argument("resident")
+    serve_cmd = sub.add_parser("serve", help="launch the zero-dependency live Story-First WebUI")
+    serve_cmd.add_argument("--runs", type=Path, default=Path("runs"), help="directory containing .sqlite archives")
+    serve_cmd.add_argument("--db", type=Path, help="optional single .sqlite archive to monitor")
+    serve_cmd.add_argument("--host", default="0.0.0.0")
+    serve_cmd.add_argument("--port", type=int, default=8765)
     for child in [init, run, stats, inspect, replay, fork]:
         child.add_argument("--db", type=Path, required=True)
     return parser
@@ -112,6 +117,12 @@ def run_simulation(store, args, parser):
 
 
 def execute(args, parser):
+    if args.command == "serve":
+        from ..web import serve
+
+        serve(runs_dir=args.runs, db_path=args.db, host=args.host, port=args.port)
+        return {"stopped": True}
+
     if args.command == "scenarios":
         entries = []
         for path in sorted(PRESETS.glob("*.json")):
