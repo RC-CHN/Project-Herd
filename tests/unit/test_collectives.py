@@ -115,7 +115,10 @@ class CollectivesTests(PolityCase):
         self.assertFalse(crowd.is_alive)
         self.assertTrue(
             any(
-                e[2] == "notice" and f"{crowd.id} dispersed (routed in combat)" in e[4]
+                e[2] == "notice"
+                and crowd.id in e[4]
+                and "casualties" in e[4]
+                and "dispersed (routed in combat)" in e[4]
                 for e in events
             )
         )
@@ -197,8 +200,8 @@ class CollectivesTests(PolityCase):
         p_unit1 = ResidentAgent(units[1].id, personas[units[1].id]).prepare(store, w, 0, 0, 60000).messages[0]["content"]
         p_crowd = ResidentAgent(crowds[0].id, personas[crowds[0].id]).prepare(store, w, 0, 0, 60000).messages[0]["content"]
         self.assertIn("独立个体（size=1）", p_leader)
-        self.assertIn("建制集体单元（size=4", p_unit0)
-        self.assertIn("自发集体单元（size=9", p_crowd)
+        self.assertIn("建制集体单元（初始编制=4", p_unit0)
+        self.assertIn("自发集体单元（初始编制=9", p_crowd)
         self.assertEqual(p_unit0, p_unit1)
 
         # Backward compatibility: legacy serialized snapshots lacking size/discipline default cleanly.
@@ -219,14 +222,15 @@ class CollectivesTests(PolityCase):
         spec = load("bayport-crisis")
         w = World.create(spec, spec["default_residents"], 42)
         counts = Counter(p.role for p in w.people.values())
-        self.assertEqual(len(w.people), 54)
-        self.assertEqual(sum(p.size for p in w.people.values()), 612)
+        self.assertEqual(len(w.people), 56)
+        self.assertEqual(sum(p.size for p in w.people.values()), 620)
         self.assertEqual(
             counts,
             dict(
                 conciliator=1,
                 hardliner=1,
                 councilor=1,
+                praetorian=2,
                 envoy=2,
                 garrison_chief=1,
                 line_officer=2,
@@ -246,14 +250,19 @@ class CollectivesTests(PolityCase):
         p_crowd = by_role("civic_crowd").combat_power(spec["items"], spec["rules"])
         p_student = by_role("student_bloc").combat_power(spec["items"], spec["rules"])
         p_constab = by_role("constabulary").combat_power(spec["items"], spec["rules"])
+        p_praet = by_role("praetorian").combat_power(spec["items"], spec["rules"])
         p_garrison = by_role("garrison_unit").combat_power(spec["items"], spec["rules"])
         self.assertLess(p_crowd, p_student)
         self.assertLess(p_student, p_constab)
+        self.assertLess(p_constab, p_praet)
+        self.assertLess(p_praet, p_garrison)
         self.assertGreater(2 * p_crowd, p_constab)
         self.assertGreater(p_garrison, 5 * p_crowd)
+        # Inner cabinet hall connects only to antechamber, insulating leaders from plaza.
+        self.assertEqual(spec["places"]["hall"]["paths"], ["antechamber"])
 
         # Full multi-tick scripted simulation + replay audit passes cleanly.
-        store = self.store(spec, count=54)
+        store = self.store(spec, count=56)
         sim = Simulation(store, Scripted(), window=0, keep=0)
         for _ in range(12):
             sim.step()
@@ -347,7 +356,7 @@ class CollectivesTests(PolityCase):
 
         # End-to-end Simulation + provenance whisper isolation audit with real scenario ties & remote calls!
         bay = load("bayport-crisis")
-        bay_store = self.store(bay, count=54, name="bayport")
+        bay_store = self.store(bay, count=56, name="bayport")
         bw = bay_store.world()
         hardliner = next(p for p in bw.people.values() if p.role == "hardliner")
         chief = next(p for p in bw.people.values() if p.role == "garrison_chief")
@@ -426,10 +435,11 @@ class CollectivesTests(PolityCase):
 
     def test_multitag_directed_relations_merge_preserve_and_roundtrip(self):
         bay = load("bayport-crisis")
-        w = World.create(bay, 54, 42)
+        w = World.create(bay, 56, 42)
         conc = next(p for p in w.people.values() if p.role == "conciliator")
         hard = next(p for p in w.people.values() if p.role == "hardliner")
         elder = next(p for p in w.people.values() if p.role == "councilor")
+        praet = next(p for p in w.people.values() if p.role == "praetorian")
         chief = next(p for p in w.people.values() if p.role == "garrison_chief")
         officers = [p for p in w.people.values() if p.role == "line_officer"]
         units = [p for p in w.people.values() if p.role == "garrison_unit"]
@@ -437,14 +447,18 @@ class CollectivesTests(PolityCase):
         # Multi-tag symmetric tie: conciliator <-> hardliner are both colleague and rival.
         self.assertEqual(conc.rels_for(hard.id), ["colleague", "rival"])
         self.assertEqual(hard.rels_for(conc.id), ["colleague", "rival"])
+        # Praetorian guard owes direct personal allegiance to the councilor.
+        self.assertEqual(elder.rels_for(praet.id), ["personal_guard"])
+        self.assertEqual(praet.rels_for(elder.id), ["patron", "master"])
         # Directed multi-tag tie: councilor sees chief as protege; chief sees councilor as patron + elder_mentor.
         self.assertEqual(elder.rels_for(chief.id), ["protege"])
         self.assertEqual(chief.rels_for(elder.id), ["patron", "elder_mentor"])
-        # Chain of command: each garrison_unit sees its partitioned line_officer as superior and chief as commander+comrade.
+        # Chain of command: each garrison_unit sees its partitioned line_officer as superior+camp_officer and chief as commander+comrade.
         for unit in units:
             self.assertEqual(unit.rels_for(chief.id), ["commander", "comrade"])
             superiors = [o.id for o in officers if "superior" in unit.rels_for(o.id)]
             self.assertEqual(len(superiors), 1)
+            self.assertTrue(all("camp_officer" in unit.rels_for(o.id) for o in officers))
         # Dynamic whisper/connect does not clobber formal relations, while new strangers get ["acquaintance"].
         conc.connect(hard.id)
         self.assertEqual(conc.rels_for(hard.id), ["colleague", "rival"])
@@ -458,3 +472,117 @@ class CollectivesTests(PolityCase):
             data["contacts"] = list(rels.keys())
         restored = World.from_dict(legacy)
         self.assertEqual(restored.people[conc.id].rels_for(hard.id), ["known"])
+
+    def test_scale_invariance_persistent_roe_lanchester_and_pop_casualties(self):
+        from herd.runtime.agent.toolbox import AgentToolbox
+        from herd.systems.gates import GateSystem
+
+        bay = load("bayport-crisis")
+        store = self.store(bay, count=56, name="roe_test")
+        w = store.world()
+
+        # 1. Exact Pop scale invariance: 4 x size=25 crowds == 1 x size=100 crowd in team_strength.
+        crowds = [p for p in w.people.values() if p.role == "civic_crowd"][:4]
+        for c in crowds:
+            c.place = "bridgeway"
+            c.energy = 10
+            c.health = 10
+        s_four = GateSystem(w).team_strength([c.id for c in crowds])
+        crowds[0].size = 100
+        s_one = GateSystem(w).team_strength([crowds[0].id])
+        self.assertAlmostEqual(s_four, s_one, places=6)
+        crowds[0].size = 25
+
+        # 2. Persistent ROE defaults: garrison_unit starts at push, praetorian starts at lethal.
+        unit = next(p for p in w.people.values() if p.role == "garrison_unit")
+        praet = next(p for p in w.people.values() if p.role == "praetorian")
+        self.assertEqual(unit.roe, "push")
+        self.assertEqual(praet.roe, "lethal")
+        self.assertIn("push", w.observe(unit.id)["force_modes"])
+        self.assertIn("lethal", w.observe(unit.id)["force_modes"])
+
+        # 3. set_roe via AgentToolbox validates mode and stages parallel roe update.
+        req = ResidentAgent(unit.id, "p").prepare(store, w, 0, 0, 60000, mode="agent_loop")
+        box = AgentToolbox(req, store)
+        self.assertFalse(box.call("set_roe", {"mode": "imaginary"})["ok"])
+        self.assertEqual(
+            box.call("set_roe", {"mode": "lethal"}),
+            {"ok": True, "result": {"staged": "roe", "mode": "lethal"}},
+        )
+        # Guard tool rejects literal 'self' in allow_pass so small models self-correct immediately.
+        bad_guard = box.call("guard", {"target": "path:bridgeway", "allow_pass": f"allow:{praet.id},self"})
+        self.assertFalse(bad_guard["ok"])
+        self.assertIn("self", bad_guard["error"])
+
+        # 4. Non-lethal push clash causes 0 casualties and never kills (floor health=1).
+        unit.place = "north_camp"
+        for c in crowds:
+            c.place = "bridgeway"
+            c.health = 2
+            c.energy = 2
+            c.roe = "push"
+        trace = []
+        turn(
+            w,
+            {
+                **{c.id: Intent("guard", "path:north_camp", detail="none") for c in crowds},
+                unit.id: Intent("force", "path:bridgeway"),
+            },
+            trace,
+        )
+        clash_push = next(e for e in trace if e["type"] == "combat")
+        self.assertEqual(clash_push["mode"], "push")
+        self.assertEqual(sum(clash_push["casualties"].values()), 0)
+        self.assertTrue(all(c.is_alive and c.size == 25 and c.health >= 1 for c in crowds))
+
+        # 5. Escalating ROE to lethal persists, appears in recent_room/guards, inflicts Lanchester casualties & rout!
+        unit.place = "north_camp"
+        unit.health = 10
+        unit.energy = 10
+        for c in crowds:
+            c.place = "bridgeway"
+            c.health = 10
+            c.energy = 10
+        trace2 = []
+        ev2 = turn(
+            w,
+            {
+                **{c.id: Intent("guard", "path:north_camp", detail="none") for c in crowds},
+                unit.id: Intent("force", "path:bridgeway", roe="lethal"),
+            },
+            trace2,
+        )
+        self.assertEqual(unit.roe, "lethal")
+        self.assertTrue(any(r["actor"] == unit.id and r["to"] == "lethal" for r in w.places["north_camp"].last_summary["roe_changes"]))
+        clash_lethal = next(e for e in trace2 if e["type"] == "combat")
+        self.assertEqual(clash_lethal["mode"], "lethal")
+        self.assertEqual(clash_lethal["winner"], "attackers")
+        self.assertEqual(clash_lethal["escalated_by"], [unit.id])
+        # Rifle company takes minimal Lanchester square-law damage while inflicting heavy casualties & dispersing crowds.
+        self.assertLessEqual(clash_lethal["damage"][unit.id], 2)
+        self.assertGreater(sum(clash_lethal["casualties"][c.id] for c in crowds), 0)
+        self.assertTrue(any(not c.is_alive for c in crowds))
+        self.assertTrue(any("casualties" in e[4] and "dispersed" in e[4] for e in ev2 if e[2] == "notice"))
+
+        # 6. Depleted collective down to size=1 remains collective (immutable prompt, no remote comm for low-disc crowd).
+        survivor = next(p for p in w.people.values() if p.role == "civic_crowd" and p.is_alive)
+        before_prompt = ResidentAgent(survivor.id, "p").prepare(store, w, 0, 0, 60000).messages[0]["content"]
+        survivor.size = 1
+        survivor.place = "south_ward"
+        after_prompt = ResidentAgent(survivor.id, "p").prepare(store, w, 0, 0, 60000).messages[0]["content"]
+        self.assertTrue(survivor.is_collective)
+        self.assertEqual(before_prompt, after_prompt)
+        self.assertFalse(w.observe(survivor.id)["can_remote_comm"])
+
+        # 7. Collective reduced to size=0 is annihilated in combat.
+        praet.place = "hall"
+        praet.size = 1
+        praet.health = 10
+        unit.place = "hall"
+        unit.size = 10
+        unit.health = 10
+        unit.energy = 10
+        ev3 = turn(w, {unit.id: Intent("force", f"person:{praet.id}"), praet.id: Intent("wait")})
+        self.assertEqual(praet.size, 0)
+        self.assertFalse(praet.is_alive)
+        self.assertTrue(any(f"{praet.id} was annihilated in combat" in e[4] for e in ev3 if e[2] == "notice"))
