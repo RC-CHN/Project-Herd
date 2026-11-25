@@ -162,10 +162,13 @@ class CombatSystem:
             base_hit = win if side_won else loss
             for actor in side:
                 person = ctx.world.people[actor]
+                hit_roll = 0.75 + 0.50 * sample(
+                    f"combat_hit/{ctx.world.seed}/{ctx.tick}/{place}/{scope}/{actor}"
+                )
                 hit = (
-                    base_hit
+                    round(base_hit * hit_roll)
                     if side_won or not base_hit
-                    else max(1, round(base_hit * person.loss_damage_multiplier(rout_shock)))
+                    else max(1, round(base_hit * person.loss_damage_multiplier(rout_shock) * hit_roll))
                 )
                 floor_hp = 0 if lethal else 1
                 person.health = max(floor_hp, person.health - hit)
@@ -173,8 +176,11 @@ class CombatSystem:
                 lost_pop = 0
                 if lethal and hit > 0:
                     if person.is_collective:
+                        cas_roll = 0.75 + 0.50 * sample(
+                            f"combat_cas/{ctx.world.seed}/{ctx.tick}/{place}/{scope}/{actor}"
+                        )
                         ratio = min(1.0, hit / ctx.rules["max_health"])
-                        raw = round(person.size * ratio * casualty_rate)
+                        raw = round(person.size * ratio * casualty_rate * cas_roll)
                         if hit >= 2 and casualty_rate > 0:
                             raw = max(1, raw)
                         lost_pop = min(person.size, raw)

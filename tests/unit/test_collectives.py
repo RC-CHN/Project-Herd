@@ -641,15 +641,23 @@ class CollectivesTests(PolityCase):
         self.assertEqual(clash_lethal["mode"], "lethal")
         self.assertEqual(clash_lethal["winner"], "attackers")
         self.assertEqual(clash_lethal["escalated_by"], [unit.id])
-        # Rifle company takes minimal Lanchester square-law damage while inflicting casualties & routing crowds off bridgeway!
+        # Rifle company takes minimal Lanchester square-law damage while inflicting varied casualties & routing broken crowds off bridgeway!
         self.assertLessEqual(clash_lethal["damage"][unit.id], 2)
         self.assertGreater(sum(clash_lethal["casualties"][c.id] for c in crowds), 0)
-        self.assertTrue(all(c.is_alive and c.health == 1 and c.place != "bridgeway" and c.place != "north_camp" for c in crowds))
-        self.assertTrue(all(c.id in clash_lethal["routed"] for c in crowds))
+        self.assertGreater(len(clash_lethal["routed"]), 0)
+        self.assertTrue(
+            all(
+                w.people[cid].is_alive
+                and w.people[cid].health == 1
+                and w.people[cid].place == dest
+                and dest not in ("bridgeway", "north_camp")
+                for cid, dest in clash_lethal["routed"].items()
+            )
+        )
         self.assertTrue(any("routed from bridgeway" in e[4] for e in ev2 if e[2] == "notice"))
 
         # Second lethal hit on an already-routed crowd (opening health == 1) permanently disperses it!
-        hunted = crowds[0]
+        hunted = w.people[next(iter(clash_lethal["routed"]))]
         unit.place = hunted.place
         ev_hunt = turn(w, {unit.id: Intent("force", f"person:{hunted.id}"), hunted.id: Intent("wait")})
         self.assertFalse(hunted.is_alive)

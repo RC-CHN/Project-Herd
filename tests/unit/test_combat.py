@@ -75,8 +75,17 @@ class CombatTests(PolityCase):
         self.assertEqual(clash["kind"], "path")
         self.assertEqual(set(clash["attackers"]), {"r000", "r001"})
         self.assertEqual(set(clash["defenders"]), {"r002", "r003"})
-        self.assertEqual(clash["damage"]["r000"], round(3.0 * disadvantage))
-        self.assertEqual(clash["damage"]["r003"], max(1, round(2.5 + 3.5 * (1.0 - disadvantage))))
+        def hit_roll(actor):
+            raw = int.from_bytes(
+                sha256(f"combat_hit/7/0/atrium/path:annex/{actor}".encode()).digest()[:4], "big"
+            )
+            return 0.75 + 0.50 * (raw / 2**32)
+
+        self.assertEqual(clash["damage"]["r000"], round(round(3.0 * disadvantage) * hit_roll("r000")))
+        self.assertEqual(
+            clash["damage"]["r003"],
+            max(1, round(max(1, round(2.5 + 3.5 * (1.0 - disadvantage))) * hit_roll("r003"))),
+        )
         self.assertEqual(people["r001"].energy, 3)
         self.assertEqual(w.places["atrium"].last_summary["guards_dropped"], ["r003"])
         self.assertEqual(w.places["annex"].last_summary["guards_dropped"], ["r002"])
