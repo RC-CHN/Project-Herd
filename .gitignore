@@ -1,0 +1,25 @@
+# Python & tooling
+__pycache__/
+*.py[cod]
+.venv/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Internal design drafts
+docs/
+
+# Intermediate simulation runs, databases, traces and reports
+runs/
+*.sqlite*
+*.db
+*.jsonl
+*-report.json
+*-backends.json
+
+# Local environment & temporary files
+.env
+.env.*
+.DS_Store
+*.log
+*.tmp
