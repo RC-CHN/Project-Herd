@@ -187,17 +187,37 @@ def validate_groups(spec):
                 string(persona["text"], "archetype.text")
                 integer(persona["weight"], 1, "archetype.weight")
     validate_population(spec, spec["default_residents"])
+    def normalize_rels(value, path):
+        if isinstance(value, str):
+            string(value, path)
+            return [value.strip()]
+        tags = sequence(value, path)
+        if not tags:
+            raise ValueError(f"{path}: expected nonempty relation tags")
+        result = []
+        for tag in tags:
+            string(tag, path)
+            cleaned = tag.strip()
+            if cleaned not in result:
+                result.append(cleaned)
+        return result
+
     for tie in sequence(spec["ties"], "ties"):
         mode = mapping(tie, "tie").get("mode")
         extra = {"all": "", "partition": "", "ring": " degree", "random_k": " k", "same_home": ""}
         reference(mode, extra, "tie.mode")
-        keys(tie, "from_group to_group mode" + extra[mode], "tie")
+        optional = (" rel" if "rel" in tie else "") + (" reverse_rel" if "reverse_rel" in tie else "")
+        keys(tie, "from_group to_group mode" + extra[mode] + optional, "tie")
         for field in ("from_group", "to_group"):
             reference(tie[field], groups, field)
         if mode == "ring" and tie["from_group"] != tie["to_group"]:
             raise ValueError("ring must join the same group")
         if extra[mode]:
             integer(tie[extra[mode].strip()], 1, mode)
+        if "rel" in tie:
+            tie["rel"] = normalize_rels(tie["rel"], "tie.rel")
+        if "reverse_rel" in tie:
+            tie["reverse_rel"] = normalize_rels(tie["reverse_rel"], "tie.reverse_rel")
 
 
 def validate_schedule(spec):

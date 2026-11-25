@@ -35,9 +35,9 @@ def validate_population(spec, count):
     return seats
 
 
-def _connect(people: dict[str, Person], first: str, second: str) -> None:
-    people[first].connect(second)
-    people[second].connect(first)
+def _connect(people: dict[str, Person], first: str, second: str, fwd_rels, rev_rels) -> None:
+    people[first].connect(second, fwd_rels)
+    people[second].connect(first, rev_rels)
 
 
 def initial_contacts(ties, seed, members, people):
@@ -49,31 +49,33 @@ def initial_contacts(ties, seed, members, people):
         rng.shuffle(right)
         if not left or not right:
             continue
+        fwd_rels = tie.get("rel") or ["known"]
+        rev_rels = tie.get("reverse_rel") or fwd_rels
         mode = tie["mode"]
         if mode == "partition":
             for i, peer in enumerate(right):
-                _connect(people, left[i % len(left)], peer)
+                _connect(people, left[i % len(left)], peer, fwd_rels, rev_rels)
         elif mode == "ring":
             degree = min(len(left) - 1, tie["degree"])
             for i, actor in enumerate(left):
                 for offset in range(1, degree // 2 + 1):
-                    _connect(people, actor, left[(i + offset) % len(left)])
+                    _connect(people, actor, left[(i + offset) % len(left)], fwd_rels, rev_rels)
             if degree % 2:
                 half = len(left) // 2
                 for i in range((len(left) + 1) // 2):
-                    _connect(people, left[i], left[i + half])
+                    _connect(people, left[i], left[i + half], fwd_rels, rev_rels)
         elif mode == "same_home":
             for actor in left:
                 for peer in right:
                     if peer != actor and people[actor].place == people[peer].place:
-                        _connect(people, actor, peer)
+                        _connect(people, actor, peer, fwd_rels, rev_rels)
         else:
             for actor in left:
                 peers = [peer for peer in right if peer != actor]
                 if mode == "random_k":
                     peers = rng.sample(peers, min(tie["k"], len(peers)))
                 for peer in peers:
-                    _connect(people, actor, peer)
+                    _connect(people, actor, peer, fwd_rels, rev_rels)
 
 
 def initial_population(spec, count, seed):

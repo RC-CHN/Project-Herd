@@ -161,7 +161,7 @@ class EntitiesTests(PolityCase):
             },
         )
         view = w.observe("r000")
-        self.assertEqual(view["contacts"], [dict(id="r001", tag="Neighbor")])
+        self.assertEqual(view["contacts"], [dict(id="r001", tag="Neighbor", rels=["known"])])
         self.assertEqual(len(view["own_offers"]), 1)
         self.assertEqual(view["own_offers"][0]["terms"], "cheat")
         self.assertEqual(w.observe("r001")["own_offers"], [])

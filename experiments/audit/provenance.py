@@ -81,17 +81,17 @@ class Audit:
         )
         check(
             all(
-                set(p) == {"id", "tag", "size", "disciplined", "known", "armed", "wounded", "weak"}
+                set(p) == {"id", "tag", "size", "disciplined", "known", "rels", "armed", "wounded", "weak"}
                 for p in view["near"]
             ),
             "private peer fields",
         )
         check(
-            all(set(p) == {"id", "tag", "size", "disciplined", "known"} for p in view["others_in_room"]),
+            all(set(p) == {"id", "tag", "size", "disciplined", "known", "rels"} for p in view["others_in_room"]),
             "private room peer fields",
         )
         check(
-            all(set(c) == {"id", "tag"} for c in view["contacts"]),
+            all(set(c) == {"id", "tag", "rels"} for c in view["contacts"]),
             "private contact fields",
         )
         check(

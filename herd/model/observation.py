@@ -55,6 +55,7 @@ def observe(world, actor_id: str, index) -> dict:
                     size=peer.size,
                     disciplined=peer.discipline >= 0.7,
                     known=peer.id in known,
+                    rels=me.rels_for(peer.id),
                     armed=peer.armed(items),
                     wounded=peer.health < rules["max_health"],
                     weak=peer.energy <= rules["low_energy_threshold"],
@@ -71,6 +72,7 @@ def observe(world, actor_id: str, index) -> dict:
                     size=peer.size,
                     disciplined=peer.discipline >= 0.7,
                     known=peer_id in known,
+                    rels=me.rels_for(peer.id),
                 )
             )
     offers = [
@@ -112,7 +114,11 @@ def observe(world, actor_id: str, index) -> dict:
         carry_cap=me.carry_cap(rules["carry_cap"]),
         room_comms=room.comms,
         can_remote_comm=me.can_remote_comm(room.comms, items),
-        contacts=[dict(id=cid, tag=world.people[cid].tag) for cid in me.contacts if cid in world.people],
+        contacts=[
+            dict(id=cid, tag=world.people[cid].tag, rels=me.rels_for(cid))
+            for cid in me.contacts
+            if cid in world.people
+        ],
         room_docs=copies(room.docs),
         items=room.items.copy(),
         item_info={k: items[k].copy() for k in sorted(held_items)},

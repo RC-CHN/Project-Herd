@@ -24,10 +24,25 @@ class Person:
     health: int
     inv: dict[str, int] = field(default_factory=dict)
     docs: dict[str, int] = field(default_factory=dict)
-    contacts: list[str] = field(default_factory=list)
+    relations: dict[str, list[str]] = field(default_factory=dict)
     posture: GuardPosture | None = None
     size: int = 1
     discipline: float = 1.0
+
+    @property
+    def contacts(self) -> list[str]:
+        return list(self.relations.keys())
+
+    @contacts.setter
+    def contacts(self, peers: list[str]) -> None:
+        updated: dict[str, list[str]] = {}
+        for peer in peers:
+            if peer != self.id and peer not in updated:
+                updated[peer] = self.relations.get(peer, ["known"]).copy()
+        self.relations = updated
+
+    def rels_for(self, peer_id: str) -> list[str]:
+        return list(self.relations.get(peer_id, ()))
 
     @property
     def is_alive(self) -> bool:
@@ -86,9 +101,20 @@ class Person:
         weight = items[item].get("weight", 1) if item in items else 0
         return max(0, cap - self.carry_weight(items)) // weight if weight else math.inf
 
-    def connect(self, peer_id: str) -> None:
-        if peer_id != self.id and peer_id not in self.contacts:
-            self.contacts.append(peer_id)
+    def connect(self, peer_id: str, rels=None) -> None:
+        if peer_id == self.id:
+            return
+        if rels is None:
+            if peer_id not in self.relations:
+                self.relations[peer_id] = ["acquaintance"]
+            return
+        tags = [rels] if isinstance(rels, str) else list(rels)
+        existing = self.relations.setdefault(peer_id, [])
+        for tag in tags:
+            if tag and tag not in existing:
+                if tag not in ("known", "acquaintance") and "acquaintance" in existing:
+                    existing.remove("acquaintance")
+                existing.append(tag)
 
     def drop_all_to(self, place: Place) -> None:
         for bag, ground in ((self.inv, place.items), (self.docs, place.docs)):
@@ -106,7 +132,7 @@ class Person:
             health=self.health,
             inv=self.inv.copy(),
             docs=self.docs.copy(),
-            contacts=self.contacts.copy(),
+            relations={peer: tags.copy() for peer, tags in self.relations.items()},
             posture=self.posture.to_dict() if self.posture else None,
             size=self.size,
             discipline=self.discipline,
@@ -121,6 +147,10 @@ class Person:
             if data["posture"]
             else None
         )
+        if "relations" in data:
+            relations = {peer: list(tags) for peer, tags in data["relations"].items()}
+        else:
+            relations = {peer: ["known"] for peer in data.get("contacts", [])}
         return cls(
             actor_id,
             data["role"],
@@ -130,7 +160,7 @@ class Person:
             data["health"],
             data["inv"].copy(),
             data["docs"].copy(),
-            data["contacts"].copy(),
+            relations,
             posture,
             data.get("size", 1),
             float(data.get("discipline", 1.0)),
