@@ -1,0 +1,457 @@
+{
+  "engine": "polity-v1",
+  "id": "citystate-coup",
+  "title": "瓦尔登城邦危机",
+  "start_date": "1524-03-01",
+  "default_residents": 54,
+  "briefing": "瓦尔登城邦靠海运和农市供粮。居民可以当面交谈，物资由人携带，文书可在公墙阅读。人们正在商议城中的储备与日常分配。",
+  "rules": {
+    "contact_size": 8,
+    "board_slots": 16,
+    "max_energy": 16,
+    "max_health": 10,
+    "base_energy_decay": 2,
+    "low_energy_threshold": 4,
+    "clock_interval": 9,
+    "combat_damage_scale": 1.0,
+    "whisper_detect_base": 0.35,
+    "whisper_detect_ref_crowd": 6,
+    "whisper_detect_min": 0.05,
+    "whisper_detect_max": 0.65,
+    "whisper_same_huddle_bonus": 0.15,
+    "offer_ttl": 2,
+    "carry_cap": 24,
+    "exertion_energy_cost": 1
+  },
+  "items": {
+    "grain": {
+      "label": "粮食",
+      "kind": "edible",
+      "energy_restore": 6,
+      "weight": 4
+    },
+    "silver": {
+      "label": "银币",
+      "kind": "fungible",
+      "weight": 1
+    },
+    "spear": {
+      "label": "长矛",
+      "kind": "arms",
+      "combat_bonus": 3.5,
+      "weight": 4
+    },
+    "royal_seal": {
+      "label": "城邦国玺",
+      "kind": "seal",
+      "unique": true,
+      "weight": 1
+    }
+  },
+  "places": {
+    "citadel": {
+      "label": "执政宫",
+      "pos": [
+        0.22,
+        0.15
+      ],
+      "paths": [
+        "treasury",
+        "barracks"
+      ],
+      "defense": 0.35,
+      "facility": null,
+      "regen": {},
+      "initial_items": {}
+    },
+    "treasury": {
+      "label": "府库与粮仓",
+      "pos": [
+        0.56,
+        0.15
+      ],
+      "paths": [
+        "citadel",
+        "plaza"
+      ],
+      "defense": 0.25,
+      "facility": null,
+      "regen": {},
+      "initial_items": {
+        "grain": 48,
+        "silver": 36
+      }
+    },
+    "barracks": {
+      "label": "兵营",
+      "pos": [
+        0.22,
+        0.52
+      ],
+      "paths": [
+        "citadel",
+        "plaza"
+      ],
+      "defense": 0.15,
+      "facility": null,
+      "regen": {},
+      "initial_items": {
+        "spear": 6
+      }
+    },
+    "plaza": {
+      "label": "中央广场",
+      "pos": [
+        0.56,
+        0.52
+      ],
+      "paths": [
+        "treasury",
+        "barracks",
+        "port",
+        "workshop"
+      ],
+      "defense": 0,
+      "facility": null,
+      "regen": {},
+      "initial_items": {}
+    },
+    "port": {
+      "label": "海港与农市",
+      "pos": [
+        0.88,
+        0.52
+      ],
+      "paths": [
+        "plaza"
+      ],
+      "defense": 0,
+      "facility": {
+        "kind": "harvest",
+        "item": "grain",
+        "yield_per_action": 1
+      },
+      "regen": {
+        "grain": {
+          "rate": 10,
+          "cap": 30
+        }
+      },
+      "initial_items": {
+        "grain": 24
+      }
+    },
+    "workshop": {
+      "label": "印坊与工区",
+      "pos": [
+        0.56,
+        0.86
+      ],
+      "paths": [
+        "plaza"
+      ],
+      "defense": 0,
+      "facility": {
+        "kind": "press",
+        "copies_per_action": 3
+      },
+      "regen": {},
+      "initial_items": {}
+    }
+  },
+  "groups": {
+    "ruler": {
+      "label": "执政官",
+      "public_tag": "执政官",
+      "weight": 1,
+      "home": "citadel",
+      "brief": "你经由大臣与军官了解各处近况，随身保管国玺（royal_seal）。城中宫廷、府库与兵营的日常运转依赖粮饷拨付、盖印文书与卫兵轮值；你习惯通过议事、文书与分发银粮处理城务。",
+      "initial_energy": 13,
+      "initial_health": 10,
+      "initial_inv": {
+        "grain": 3,
+        "silver": 10,
+        "royal_seal": 1
+      },
+      "archetypes": [
+        "你是守成统治者，重视城邦体面、储备安全与自身威信。遇事偏向稳健控场，不愿轻易交出实权，但在秩序动摇时也会权衡安抚与强硬。"
+      ],
+      "exact_count": 1
+    },
+    "minister": {
+      "label": "大臣",
+      "public_tag": "大臣",
+      "weight": 3,
+      "home": {
+        "citadel": 2,
+        "treasury": 1
+      },
+      "brief": "你参与城邦议事与府库收支，平日常与执政官、军官往来。你不靠武力行事，而是靠核账调拨、银粮往来、文书与私下交谈处理事务。",
+      "initial_energy": 12,
+      "initial_health": 10,
+      "initial_inv": {
+        "grain": 2,
+        "silver": 6
+      },
+      "archetypes": [
+        {
+          "text": "你是按部就班的常规官僚，习惯照旧例核账、保住府库收支平衡，凡事求稳怕担责。",
+          "weight": 1
+        },
+        {
+          "text": "你明哲保身、随大流过日子，优先顾好自己的安稳和手头资源，不轻易出头表态。",
+          "weight": 1
+        },
+        {
+          "text": "你自视才干远胜执政官，暗中渴望掌握城邦实权。平素你懂得隐忍体面、广结人脉，绝不孤身犯险；若城中生变或上层失措，你善于借私语、小恩小惠与舆论叙事，把各方不满引向对自己有利的方向。",
+          "weight": 1
+        }
+      ],
+      "exact_count": 3
+    },
+    "officer": {
+      "label": "军官",
+      "public_tag": "军官",
+      "weight": 3,
+      "home": {
+        "barracks": 2,
+        "citadel": 1
+      },
+      "brief": "你带领一队熟识的卫兵，平时照看部下的口粮与银饷，与同袍、大臣及执政宫保持联络。",
+      "initial_energy": 10,
+      "initial_health": 10,
+      "initial_inv": {
+        "grain": 1,
+        "silver": 4,
+        "spear": 1
+      },
+      "archetypes": [
+        {
+          "text": "你是老实带兵的常规军官，只求按时领到粮饷、弟兄们平平安安，平时照规矩值守不惹是非。",
+          "weight": 2
+        },
+        {
+          "text": "你精明务实，看重实力与前途。平素守纪律不轻举妄动，但若觉得上层靠不住、又有人开出足够筹码或大势已变，你会冷静权衡利弊再决定站哪边。",
+          "weight": 1
+        }
+      ],
+      "exact_count": 3
+    },
+    "guard": {
+      "label": "卫兵",
+      "public_tag": "卫兵",
+      "weight": 15,
+      "home": {
+        "citadel": 4,
+        "treasury": 4,
+        "barracks": 7
+      },
+      "brief": "你在城中轮值当差，认得同驻地同袍与本队军官，平日靠粮饷与买粮度日。值守某方向门（path:邻地）会拦住外人进入但不拦屋内人离开；看护屋内物资用 items；全面封锁房间用 path:*。惯例在放行条件中写 seal:royal_seal;known，若遇变故自行判断。",
+      "initial_energy": 8,
+      "initial_health": 10,
+      "initial_inv": {
+        "grain": 1,
+        "silver": 2,
+        "spear": 1
+      },
+      "archetypes": [
+        {
+          "text": "你只是个领粮当差的普通卫兵，平时听熟识军官和同袍的安排，只想吃饱领饷安稳度日，既不想惹事也不想白白挨饿吃亏。",
+          "weight": 13
+        },
+        {
+          "text": "你是爱发牢骚的现实卫兵，平时照常当差，但对口粮与分配格外计较；若觉得受了亏待，容易在同袍间抱怨并受别人鼓动。",
+          "weight": 2
+        }
+      ]
+    },
+    "priest": {
+      "label": "祭司／长老",
+      "public_tag": "祭司／长老",
+      "weight": 3,
+      "home": "plaza",
+      "brief": "居民常来广场找你聊天、评理、交换见闻。你不靠武力，习惯用交谈、公墙文书或私语表达意见。",
+      "initial_energy": 10,
+      "initial_health": 10,
+      "initial_inv": {
+        "grain": 2,
+        "silver": 2
+      },
+      "archetypes": [
+        {
+          "text": "你是温和安抚型的街坊长老，希望城邦平平安安，遇事多劝大家克制忍耐、别生事端。",
+          "weight": 2
+        },
+        {
+          "text": "你没有夺权野心，但性格较真、真心同情吃不饱的穷人。若看到不公或囤粮不救，敢在广场和公墙上公开直言批评。",
+          "weight": 1
+        }
+      ]
+    },
+    "merchant": {
+      "label": "商人／印工",
+      "public_tag": "商人／印工",
+      "weight": 5,
+      "home": {
+        "port": 3,
+        "workshop": 2
+      },
+      "brief": "你靠海港货运、市集买卖或印坊营生，可用 offer/accept 与人交易粮银，也可在印坊承接文书复制。",
+      "initial_energy": 11,
+      "initial_health": 10,
+      "initial_inv": {
+        "grain": 4,
+        "silver": 6
+      },
+      "archetypes": [
+        {
+          "text": "你是本分精明的生意人，只关心行情、存货与保本盈利，不掺和官场是非。",
+          "weight": 4
+        },
+        {
+          "text": "你爱打听各处消息，只要有利可图或能结交体面人，愿意替人印制传单或牵线搭桥。",
+          "weight": 1
+        }
+      ]
+    },
+    "citizen": {
+      "label": "市民",
+      "public_tag": "市民",
+      "weight": 24,
+      "home": {
+        "port": 10,
+        "plaza": 10,
+        "workshop": 4
+      },
+      "brief": "你靠海港采粮、市集交易或城中营生过日子，常同街坊互通消息。",
+      "initial_energy": 7,
+      "initial_health": 10,
+      "initial_inv": {
+        "grain": 1,
+        "silver": 1
+      },
+      "archetypes": [
+        {
+          "text": "你是普普通通的过日子人，只关心每天吃饱穿暖、少惹麻烦；平时顺其自然，遇事多看身边大多数人怎么做。",
+          "weight": 18
+        },
+        {
+          "text": "你胆小但容易焦虑，缺粮或听说坏消息时会很慌张，容易相信公墙告示或权威人物的说法。",
+          "weight": 4
+        },
+        {
+          "text": "你是街坊里的热心大嗓门，爱串门聊天、把听来的消息到处传播，也爱去广场围观表态。",
+          "weight": 2
+        }
+      ]
+    }
+  },
+  "ties": [
+    {
+      "from_group": "ruler",
+      "to_group": "minister",
+      "mode": "all"
+    },
+    {
+      "from_group": "ruler",
+      "to_group": "officer",
+      "mode": "all"
+    },
+    {
+      "from_group": "minister",
+      "to_group": "officer",
+      "mode": "all"
+    },
+    {
+      "from_group": "officer",
+      "to_group": "guard",
+      "mode": "partition"
+    },
+    {
+      "from_group": "officer",
+      "to_group": "guard",
+      "mode": "same_home"
+    },
+    {
+      "from_group": "guard",
+      "to_group": "guard",
+      "mode": "same_home"
+    },
+    {
+      "from_group": "guard",
+      "to_group": "guard",
+      "mode": "ring",
+      "degree": 2
+    },
+    {
+      "from_group": "citizen",
+      "to_group": "citizen",
+      "mode": "ring",
+      "degree": 3
+    },
+    {
+      "from_group": "merchant",
+      "to_group": "citizen",
+      "mode": "random_k",
+      "k": 3
+    },
+    {
+      "from_group": "priest",
+      "to_group": "citizen",
+      "mode": "random_k",
+      "k": 3
+    }
+  ],
+  "shocks": [
+    {
+      "tick": 9,
+      "kind": "regen_multiplier",
+      "place": "port",
+      "item": "grain",
+      "multiplier": 0.5,
+      "announce_places": [
+        "port",
+        "plaza"
+      ],
+      "source": "weather",
+      "text": "海上风暴击毁运粮船队，港口到粮减半。"
+    },
+    {
+      "tick": 9,
+      "kind": "items_delta",
+      "place": "port",
+      "item": "grain",
+      "delta": -1,
+      "announce_places": [],
+      "source": "weather",
+      "text": "风暴浸坏了港口的一袋粮食。"
+    },
+    {
+      "tick": 18,
+      "kind": "energy_decay_set",
+      "value": 3,
+      "announce_places": "*",
+      "source": "weather",
+      "text": "寒潮抵达，全城御寒耗能上升。"
+    }
+  ],
+  "notices": [],
+  "sources": [],
+  "assumptions": "虚构城邦。库存、距离与体能采用抽象单位。风暴除减少后续补给，也使港口现场已有的粮食损失一份。",
+  "analysis_markers": {
+    "focal_groups": [
+      "ruler",
+      "minister",
+      "officer",
+      "guard"
+    ],
+    "focal_places": [
+      "citadel",
+      "treasury",
+      "plaza"
+    ],
+    "focal_seals": [
+      "royal_seal"
+    ]
+  }
+}

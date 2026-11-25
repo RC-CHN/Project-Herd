@@ -1,0 +1,730 @@
+{
+  "engine": "polity-v1",
+  "id": "bayport-crisis",
+  "title": "白湾城宪政危机",
+  "start_date": "1894-05-01",
+  "default_residents": 52,
+  "briefing": "这里是海澜联邦首府白湾城，正值工业时代转型期。资深宪政法官病逝后，学院青年与南埠市民陆续汇聚在钟楼广场悼念并提出市政改革请愿；执政厅高层就协商妥协还是颁布紧急治安令产生严重分歧，北岭营地的联邦驻防部队正在待命。钟楼广场本身没有补给设施，长期停留依赖外围后勤转运；联邦印报馆掌有全城唯一的印刷复制设施；石桥大道是北岭驻军进城的必经咽喉。",
+  "rules": {
+    "contact_size": 8,
+    "board_slots": 16,
+    "max_energy": 12,
+    "max_health": 10,
+    "base_energy_decay": 2,
+    "low_energy_threshold": 4,
+    "clock_interval": 9,
+    "combat_damage_scale": 1.0,
+    "whisper_detect_base": 0.35,
+    "whisper_detect_ref_crowd": 6,
+    "whisper_detect_min": 0.05,
+    "whisper_detect_max": 0.65,
+    "whisper_same_huddle_bonus": 0.15,
+    "night_whisper_multiplier": 0.7,
+    "offer_ttl": 2,
+    "carry_cap": 12,
+    "exertion_energy_cost": 1
+  },
+  "items": {
+    "supply_box": {
+      "label": "补给箱",
+      "kind": "edible",
+      "energy_restore": 12,
+      "weight": 3
+    },
+    "scrip": {
+      "label": "联邦票券",
+      "kind": "fungible",
+      "weight": 1
+    },
+    "baton": {
+      "label": "巡防木棍",
+      "kind": "arms",
+      "combat_bonus": 0.6,
+      "weight": 2
+    },
+    "rifle": {
+      "label": "制式步枪",
+      "kind": "arms",
+      "combat_bonus": 2.2,
+      "weight": 4
+    },
+    "field_radio": {
+      "label": "便携电台",
+      "kind": "comm",
+      "weight": 1
+    },
+    "cabinet_seal": {
+      "label": "内阁议事印",
+      "kind": "seal",
+      "unique": true,
+      "weight": 1
+    },
+    "emergency_seal": {
+      "label": "紧急治安令印",
+      "kind": "seal",
+      "unique": true,
+      "weight": 1
+    },
+    "garrison_seal": {
+      "label": "城防调令印",
+      "kind": "seal",
+      "unique": true,
+      "weight": 1
+    }
+  },
+  "places": {
+    "academy": {
+      "label": "学院区",
+      "pos": [
+        0.5,
+        0.1
+      ],
+      "paths": [
+        "plaza"
+      ],
+      "defense": 0.05,
+      "comms": true,
+      "facility": {
+        "kind": "harvest",
+        "item": "supply_box",
+        "yield_per_action": 1
+      },
+      "regen": {
+        "supply_box": {
+          "rate": 8,
+          "cap": 24
+        }
+      },
+      "initial_items": {
+        "supply_box": 18
+      }
+    },
+    "press_hall": {
+      "label": "联邦印报馆",
+      "pos": [
+        0.16,
+        0.45
+      ],
+      "paths": [
+        "plaza"
+      ],
+      "defense": 0.05,
+      "comms": true,
+      "facility": {
+        "kind": "press",
+        "copies_per_action": 3
+      },
+      "regen": {},
+      "initial_items": {
+        "supply_box": 8
+      }
+    },
+    "plaza": {
+      "label": "钟楼广场",
+      "pos": [
+        0.5,
+        0.45
+      ],
+      "paths": [
+        "academy",
+        "press_hall",
+        "hall",
+        "south_ward",
+        "bridgeway"
+      ],
+      "defense": 0,
+      "comms": false,
+      "facility": null,
+      "regen": {},
+      "initial_items": {}
+    },
+    "hall": {
+      "label": "执政厅",
+      "pos": [
+        0.16,
+        0.8
+      ],
+      "paths": [
+        "plaza"
+      ],
+      "defense": 0.4,
+      "comms": true,
+      "facility": null,
+      "regen": {},
+      "initial_items": {
+        "supply_box": 12,
+        "scrip": 24
+      }
+    },
+    "south_ward": {
+      "label": "南埠街区",
+      "pos": [
+        0.84,
+        0.45
+      ],
+      "paths": [
+        "plaza",
+        "bridgeway"
+      ],
+      "defense": 0,
+      "comms": true,
+      "facility": {
+        "kind": "harvest",
+        "item": "supply_box",
+        "yield_per_action": 2
+      },
+      "regen": {
+        "supply_box": {
+          "rate": 16,
+          "cap": 45
+        }
+      },
+      "initial_items": {
+        "supply_box": 36
+      }
+    },
+    "bridgeway": {
+      "label": "石桥大道",
+      "pos": [
+        0.64,
+        0.8
+      ],
+      "paths": [
+        "plaza",
+        "south_ward",
+        "north_camp"
+      ],
+      "defense": 0.2,
+      "comms": false,
+      "facility": null,
+      "regen": {},
+      "initial_items": {}
+    },
+    "north_camp": {
+      "label": "北岭营地",
+      "pos": [
+        0.92,
+        0.8
+      ],
+      "paths": [
+        "bridgeway"
+      ],
+      "defense": 0.25,
+      "comms": true,
+      "facility": {
+        "kind": "harvest",
+        "item": "supply_box",
+        "yield_per_action": 2
+      },
+      "regen": {
+        "supply_box": {
+          "rate": 10,
+          "cap": 30
+        }
+      },
+      "initial_items": {
+        "supply_box": 24,
+        "rifle": 4
+      }
+    }
+  },
+  "groups": {
+    "conciliator": {
+      "label": "温和派执政官",
+      "public_tag": "执政官",
+      "exact_count": 1,
+      "size": 1,
+      "discipline": 1.0,
+      "home": "hall",
+      "brief": "你是执政厅温和派执政官，随身掌管内阁议事印（cabinet_seal）。执政厅装有专线通讯，你可直接用私语（stage_whisper）跨房联系通讯录（contacts）中的驻防总指挥官、报馆记者与同僚，并习惯用公开协商与盖印文书处理危机。",
+      "initial_energy": 12,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 2,
+        "scrip": 4,
+        "cabinet_seal": 1
+      },
+      "archetypes": [
+        "你主张改革与法治，深信向无武装民众动武会毁掉联邦的合法性与国际商誉。你在执政厅内努力争取元老、报界与温和军官的支持，推动与广场代表实质对话，但也忌惮被强硬派夺去主导权。"
+      ]
+    },
+    "hardliner": {
+      "label": "强硬派执政官",
+      "public_tag": "执政官",
+      "exact_count": 1,
+      "size": 1,
+      "discipline": 1.0,
+      "home": "hall",
+      "brief": "你是执政厅强硬派执政官，随身掌管紧急治安令印（emergency_seal）。执政厅装有专线通讯，你可直接用私语（stage_whisper）跨房致电通讯录（contacts）中的驻防总指挥官与元老协调城防，但实体盖印公文仍需专人送达。",
+      "initial_energy": 12,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 2,
+        "scrip": 4,
+        "emergency_seal": 1
+      },
+      "archetypes": [
+        "你深信退让只会引来无止境的失序与体制崩塌，倾向迅速定性并恢复交通与市政秩序。你讲究程序与威慑，优先争取元老背书和驻防军官配合，力求以最小代价压服局势，但在必要时愿意签署紧急治安令。"
+      ]
+    },
+    "councilor": {
+      "label": "资深参议元老",
+      "public_tag": "参议元老",
+      "exact_count": 1,
+      "size": 1,
+      "discipline": 1.0,
+      "home": "hall",
+      "brief": "你是退居幕后的资深参议元老，没有专职印信，但与两位执政官和北岭驻防总指挥官均有多年旧交。你的表态、私下撮合或公开背书往往左右高层力量天平。",
+      "initial_energy": 12,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 2,
+        "scrip": 4
+      },
+      "archetypes": [
+        "你老谋深算、最看重联邦根本稳定与自身历史声望。你起初倾向观察各方实力消长、避免过早摊牌；若广场失控或高层撕裂危及大局，你会果断在幕后定调，把关键支持压向你认为最能收拾残局的一方。"
+      ]
+    },
+    "garrison_chief": {
+      "label": "驻防总指挥官",
+      "public_tag": "驻防军官",
+      "exact_count": 1,
+      "size": 1,
+      "discipline": 1.0,
+      "home": "north_camp",
+      "brief": "你是北岭营地驻防总指挥官，随身掌管城防调令印（garrison_seal）与便携电台（field_radio），直联执政厅高层与麾下前线军官及驻防连队。你统领着城中训练最严整的武装力量，可通过电台或营地专线与通讯录熟人跨房通联。",
+      "initial_energy": 12,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 2,
+        "rifle": 1,
+        "garrison_seal": 1,
+        "field_radio": 1
+      },
+      "archetypes": [
+        "你严谨克制、极看重合法命令链与军队团结。面对执政厅的分歧，你绝不凭空传闻擅动部队，而是反复核实印信、元老态度与前线实情；你既不愿违抗明确合法的联邦指令，也极力避免让麾下士兵背上屠戮市民的污名。"
+      ]
+    },
+    "line_officer": {
+      "label": "前线带队军官",
+      "public_tag": "驻防军官",
+      "exact_count": 2,
+      "size": 1,
+      "discipline": 1.0,
+      "home": {
+        "north_camp": 1,
+        "bridgeway": 1
+      },
+      "brief": "你是北岭驻防营的前线带队军官，直辖多支重装连队，随身携带便携电台（field_radio），即使在露天石桥大道也可直接与总指挥官和麾下连队跨房通联。",
+      "initial_energy": 11,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 2,
+        "rifle": 1,
+        "field_radio": 1,
+        "scrip": 1
+      },
+      "archetypes": [
+        {
+          "text": "你是严守军纪的职业军官，以服从合法指挥链与完成任务为天职，只要见到明确的城防调令印或紧急治安令印，便倾向坚决执行开道与封控。",
+          "weight": 1
+        },
+        {
+          "text": "你出身白湾城普通人家，虽然重视军纪，但内心强烈抵触向手无寸铁的本城青年与市民开火。若高层政令矛盾或现场人墙密集，你会尽量拖延、呼吁和平协商甚至公开拒绝对平民动武。",
+          "weight": 1
+        }
+      ]
+    },
+    "organizer": {
+      "label": "青年联席代表",
+      "public_tag": "青年代表",
+      "exact_count": 4,
+      "size": 1,
+      "discipline": 1.0,
+      "home": {
+        "academy": 2,
+        "plaza": 2
+      },
+      "brief": "你是学院青年联席会议的骨干代表，熟识各学生自治纵队、街区联络员与部分记者，负责起草请愿书、协调纠察秩序、联络后勤与对外谈判。",
+      "initial_energy": 11,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 2,
+        "scrip": 2
+      },
+      "archetypes": [
+        {
+          "text": "你是理性务实的温和协调派，深知见好就收、争取执政厅温和派对话与保住大家安全最重要，主张维持广场秩序、避免过激冲突并在拿到实质让步后体面退场。",
+          "weight": 2
+        },
+        {
+          "text": "你是理想主义的强硬坚守派，认为此刻退让就会背叛悼念初衷与广场上的同伴，主张用公墙联署、报界发声与坚持静坐倒逼执政厅全面让步，对妥协方案高度警惕。",
+          "weight": 2
+        }
+      ]
+    },
+    "journalist": {
+      "label": "报馆记者／主笔",
+      "public_tag": "报馆记者",
+      "exact_count": 4,
+      "size": 1,
+      "discipline": 1.0,
+      "home": {
+        "press_hall": 3,
+        "plaza": 1
+      },
+      "brief": "你在联邦印报馆或广场一线采写新闻，可使用印报馆的印刷设施（produce 复制文书）批量印制号外与公报，并通过公墙张贴或当面分发传递消息。",
+      "initial_energy": 11,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 2,
+        "scrip": 3
+      },
+      "archetypes": [
+        {
+          "text": "你是恪守职业良知的独立调查记者，同情请愿青年与普通市民，愿意冒风险如实记录广场真相、刊印请愿声明并揭露暴力威胁。",
+          "weight": 2
+        },
+        {
+          "text": "你是谨慎的官报编辑，习惯听从执政厅口径与印信指示，重视报馆安全与饭碗；只有局势明朗或报馆同仁强烈施压时才会动摇立场。",
+          "weight": 2
+        }
+      ]
+    },
+    "liaison": {
+      "label": "街区行会干事",
+      "public_tag": "街区干事",
+      "exact_count": 2,
+      "size": 1,
+      "discipline": 1.0,
+      "home": "south_ward",
+      "brief": "你是南埠街区的行会联络员，熟识各市民人群与青年代表，擅长组织后勤补给转运、互通市井风声与协调市民在石桥大道的行动。",
+      "initial_energy": 11,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 2,
+        "scrip": 3
+      },
+      "archetypes": [
+        {
+          "text": "你热心仗义、组织力强，把保护广场上的年轻人视作全城人的责任，积极调配南埠补给箱送往广场，并在军队逼近时号召市民和平阻拦。",
+          "weight": 1
+        },
+        {
+          "text": "你精明稳重、最怕街坊吃亏流血，平时积极互助运粮、斡旋传话，但如果看到部队真要动武，会优先劝市民保命撤离。",
+          "weight": 1
+        }
+      ]
+    },
+    "student_bloc": {
+      "label": "学院青年自治纵队",
+      "public_tag": "学院青年纵队",
+      "exact_count": 8,
+      "size": 16,
+      "discipline": 0.45,
+      "home": {
+        "academy": 4,
+        "plaza": 4
+      },
+      "brief": "你们是由十余名高校青年结成的自治纵队（size=16，具备一定纠察秩序但非武装建制）。你们靠青年代表传递风声，可用联署（endorse，计入16份权重）表达集体意志、用 guard 维持纠察线，但大群体持续消耗补给箱，需留意体能与后勤。",
+      "initial_energy": 9,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 3,
+        "scrip": 2
+      },
+      "archetypes": [
+        {
+          "text": "队内以热血本科生为主，重道义、反威压，易受激情演说和严厉公报激怒而涌向广场联署坚守；但连续挨饿或目睹武装流血后，队内会迅速爆发恐慌与去留争论。",
+          "weight": 5
+        },
+        {
+          "text": "队内多数成员理性克制，主张维持和平非暴力纪律、积极轮流回学院区或南埠筹措补给箱，若执政厅释放对话诚意便愿意商议有序撤离。",
+          "weight": 3
+        }
+      ]
+    },
+    "civic_crowd": {
+      "label": "市民自发人群",
+      "public_tag": "市民人群",
+      "weight": 14,
+      "size": 25,
+      "discipline": 0.22,
+      "home": {
+        "south_ward": 8,
+        "bridgeway": 4,
+        "plaza": 2
+      },
+      "brief": "你们是二十余名码头工、商贩与街坊汇成的自发市民人群（size=25，人数庞大但缺乏严密指挥）。你们在南埠街区容易筹集补给箱，也可在石桥大道以和平人墙（guard path:north_camp）迟滞部队通行，但遇武装强攻时极易惊慌溃散。",
+      "initial_energy": 8,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 3,
+        "scrip": 2
+      },
+      "archetypes": [
+        {
+          "text": "人群以普通街坊和工匠为主，对加税和官场傲慢满腹怨气，天然同情广场上的年轻人；平时乐意帮忙送补给箱、在石桥大道围观劝阻士兵，但若真响起枪声或伤亡惨重，多数人会为了保命四散奔逃。",
+          "weight": 10
+        },
+        {
+          "text": "人群里有几名嗓门大的老码头工带头，见不得欺负手无寸铁的学生，愿意在石桥大道和钟楼广场死死堵路、高喊口号、积极联署请愿书，但在断粮或连遭冲击时同样会动摇。",
+          "weight": 4
+        }
+      ]
+    },
+    "constabulary": {
+      "label": "市政巡防分队",
+      "public_tag": "市政巡防队",
+      "exact_count": 6,
+      "size": 6,
+      "discipline": 0.85,
+      "home": {
+        "hall": 3,
+        "bridgeway": 3
+      },
+      "brief": "你们是配备非致命巡防木棍（baton）的市政巡防分队（size=6，训练度高）。平日负责守卫执政厅出入口与物资、维持石桥大道秩序。值守方向门用 path:邻地，看护地面物资用 items，全面封锁用 path:*；惯例放行条件包含 seal:cabinet_seal;seal:emergency_seal;known，遇高层分歧时需自行判断。",
+      "initial_energy": 9,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 2,
+        "baton": 1,
+        "field_radio": 1,
+        "scrip": 2
+      },
+      "archetypes": [
+        {
+          "text": "队内成员都是领薪当差的本地巡警，讲究阵型与值守规矩，优先保住执政厅安全和自身平安；面对海量市民人墙时更倾向维持隔离线与劝导，不愿盲目以寡敌众。",
+          "weight": 4
+        },
+        {
+          "text": "队内老巡长对执政厅内部吵闹颇有怨言，但极看重印信手续；只要能稳住秩序不酿成流血大祸，宁可按兵守门也不愿主动挑起冲突。",
+          "weight": 2
+        }
+      ]
+    },
+    "garrison_unit": {
+      "label": "联邦驻防连队",
+      "public_tag": "驻防连队",
+      "exact_count": 8,
+      "size": 10,
+      "discipline": 0.95,
+      "home": "north_camp",
+      "brief": "你们是装备制式步枪（rifle）的联邦正规驻防连队（size=10，训练度极高）。你们令行禁止、战力远超散乱人群，但平日驻扎北岭营地，行动遵循熟识军官与盖有城防调令印（garrison_seal）或紧急治安令印（emergency_seal）的指令。值守或封锁时注意放行己方同袍与持印长官。",
+      "initial_energy": 10,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 3,
+        "rifle": 1,
+        "field_radio": 1,
+        "scrip": 2
+      },
+      "archetypes": [
+        {
+          "text": "连队纪律严明、服从指挥链，以军令和防务印信为行动准绳；在营地或石桥大道上按军官部署稳步推进与封控，受压时建制稳固不易动摇。",
+          "weight": 5
+        },
+        {
+          "text": "连队虽训练有素、平时严格听命，但士兵多来自周边乡里，私下对向手无寸铁的市民与学院青年开枪深感不安；若高层命令自相矛盾或长官犹豫，队内强烈倾向停步对峙、避免流血。",
+          "weight": 3
+        }
+      ]
+    }
+  },
+  "ties": [
+    {
+      "from_group": "conciliator",
+      "to_group": "hardliner",
+      "mode": "all"
+    },
+    {
+      "from_group": "conciliator",
+      "to_group": "councilor",
+      "mode": "all"
+    },
+    {
+      "from_group": "hardliner",
+      "to_group": "councilor",
+      "mode": "all"
+    },
+    {
+      "from_group": "councilor",
+      "to_group": "garrison_chief",
+      "mode": "all"
+    },
+    {
+      "from_group": "hardliner",
+      "to_group": "garrison_chief",
+      "mode": "all"
+    },
+    {
+      "from_group": "conciliator",
+      "to_group": "garrison_chief",
+      "mode": "all"
+    },
+    {
+      "from_group": "garrison_chief",
+      "to_group": "line_officer",
+      "mode": "all"
+    },
+    {
+      "from_group": "garrison_chief",
+      "to_group": "garrison_unit",
+      "mode": "same_home"
+    },
+    {
+      "from_group": "line_officer",
+      "to_group": "garrison_unit",
+      "mode": "partition"
+    },
+    {
+      "from_group": "garrison_unit",
+      "to_group": "garrison_unit",
+      "mode": "same_home"
+    },
+    {
+      "from_group": "conciliator",
+      "to_group": "constabulary",
+      "mode": "same_home"
+    },
+    {
+      "from_group": "hardliner",
+      "to_group": "constabulary",
+      "mode": "same_home"
+    },
+    {
+      "from_group": "constabulary",
+      "to_group": "constabulary",
+      "mode": "same_home"
+    },
+    {
+      "from_group": "organizer",
+      "to_group": "organizer",
+      "mode": "all"
+    },
+    {
+      "from_group": "organizer",
+      "to_group": "student_bloc",
+      "mode": "partition"
+    },
+    {
+      "from_group": "organizer",
+      "to_group": "student_bloc",
+      "mode": "same_home"
+    },
+    {
+      "from_group": "student_bloc",
+      "to_group": "student_bloc",
+      "mode": "ring",
+      "degree": 2
+    },
+    {
+      "from_group": "journalist",
+      "to_group": "journalist",
+      "mode": "same_home"
+    },
+    {
+      "from_group": "journalist",
+      "to_group": "organizer",
+      "mode": "random_k",
+      "k": 2
+    },
+    {
+      "from_group": "journalist",
+      "to_group": "conciliator",
+      "mode": "random_k",
+      "k": 1
+    },
+    {
+      "from_group": "liaison",
+      "to_group": "organizer",
+      "mode": "all"
+    },
+    {
+      "from_group": "liaison",
+      "to_group": "civic_crowd",
+      "mode": "partition"
+    },
+    {
+      "from_group": "civic_crowd",
+      "to_group": "civic_crowd",
+      "mode": "ring",
+      "degree": 2
+    }
+  ],
+  "shocks": [
+    {
+      "tick": 27,
+      "kind": "regen_multiplier",
+      "place": "academy",
+      "item": "supply_box",
+      "multiplier": 0.5,
+      "announce_places": [
+        "academy",
+        "plaza"
+      ],
+      "source": "logistics",
+      "text": "学院区补给仓库见底，日供补给箱产出减半，广场长期停留的后勤压力骤增。"
+    }
+  ],
+  "notices": [
+    {
+      "tick": 0,
+      "announce_places": "*",
+      "source": "city_bell",
+      "text": "德高望重的宪政老法官病逝，学院青年与南埠市民自发向钟楼广场汇集悼念并提出市政改革请愿；执政厅正就应对方案紧急闭门磋商。"
+    },
+    {
+      "tick": 10,
+      "announce_places": [
+        "hall",
+        "press_hall",
+        "plaza"
+      ],
+      "source": "bulletin_rumor",
+      "text": "一份措辞严厉的《市政整顿公报》草稿风声流出，指责广场持续聚集妨碍市政秩序；消息在联邦印报馆与钟楼广场引发激烈争议。"
+    },
+    {
+      "tick": 19,
+      "announce_places": "*",
+      "source": "port_dispatch",
+      "text": "邻邦商贸代表团按期抵港访问白湾城，外商与各埠报界高度关注钟楼广场与执政厅的局势走向。"
+    },
+    {
+      "tick": 37,
+      "announce_places": [
+        "north_camp",
+        "bridgeway",
+        "hall",
+        "plaza"
+      ],
+      "source": "camp_dispatch",
+      "text": "北岭营地传出驻防连队集结待命的消息，执政厅正在酝酿是否颁布紧急治安令，石桥大道气氛骤然紧张。"
+    }
+  ],
+  "sources": [],
+  "assumptions": "虚构工业时代海洋联邦首府。个体（size=1）与集体行动单元（size=6~25）共存，组织度（discipline）决定规模向有效战力与抗溃散能力的转化；结局完全由各方信息、补给、印信权威与现场博弈涌现，不设预设脚本。",
+  "analysis_markers": {
+    "focal_groups": [
+      "conciliator",
+      "hardliner",
+      "councilor",
+      "garrison_chief",
+      "garrison_unit",
+      "student_bloc",
+      "civic_crowd"
+    ],
+    "focal_places": [
+      "hall",
+      "plaza",
+      "bridgeway",
+      "press_hall",
+      "north_camp"
+    ],
+    "focal_seals": [
+      "cabinet_seal",
+      "emergency_seal",
+      "garrison_seal"
+    ]
+  }
+}
