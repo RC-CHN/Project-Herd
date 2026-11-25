@@ -243,8 +243,8 @@ class CollectivesTests(PolityCase):
         spec = load("bayport-crisis")
         w = World.create(spec, spec["default_residents"], 42)
         counts = Counter(p.role for p in w.people.values())
-        self.assertEqual(len(w.people), 56)
-        self.assertEqual(sum(p.size for p in w.people.values()), 672)
+        self.assertEqual(len(w.people), 57)
+        self.assertEqual(sum(p.size for p in w.people.values()), 680)
         self.assertEqual(
             counts,
             dict(
@@ -252,6 +252,7 @@ class CollectivesTests(PolityCase):
                 hardliner=1,
                 councilor=1,
                 praetorian=2,
+                inner_guard=1,
                 envoy=2,
                 garrison_chief=1,
                 line_officer=2,
@@ -273,12 +274,27 @@ class CollectivesTests(PolityCase):
         self.assertEqual(len(agent.relations), 4)
         for peer_id, rels in agent.relations.items():
             self.assertNotEqual(rels, w.people[peer_id].rels_for(agent.id))
-        # Physical fiscal_ledger starts in hall; outer_garrison sits 4 hops from bridgeway via 3 relay posts.
+        # Physical fiscal_ledger starts in hall without being spoiled in global briefing; inner_gate buffers hall.
         self.assertEqual(w.places["hall"].items.get("fiscal_ledger"), 1)
+        self.assertNotIn("fiscal_ledger", spec["briefing"])
+        self.assertEqual(spec["places"]["hall"]["paths"], ["inner_gate"])
+        self.assertEqual(spec["places"]["inner_gate"]["paths"], ["antechamber", "hall"])
         self.assertEqual(spec["places"]["outer_garrison"]["paths"], ["highland_post"])
         self.assertEqual(spec["places"]["highland_post"]["paths"], ["east_relay", "outer_garrison"])
         self.assertEqual(spec["places"]["east_relay"]["paths"], ["outer_gate", "highland_post"])
         self.assertEqual(spec["places"]["outer_gate"]["paths"], ["bridgeway", "east_relay"])
+        # Dedicated 1x8 lethal inner_guard at inner_gate holds off massive unarmed crowds (278 people) while yielding to regular troops.
+        from herd.systems.gates import GateSystem
+        gs = GateSystem(w)
+        lethal_mode = spec["rules"]["force_modes"]["lethal"]
+        ig = next(p for p in w.people.values() if p.role == "inner_guard")
+        self.assertEqual((ig.size, ig.roe, ig.place), (8, "lethal", "inner_gate"))
+        all_students = [p.id for p in w.people.values() if p.role == "student_bloc"]
+        six_crowds = [p.id for p in w.people.values() if p.role == "civic_crowd"][:6]
+        self.assertGreater(
+            gs.team_strength([ig.id], terrain=True, mode_spec=lethal_mode),
+            gs.team_strength(all_students + six_crowds, mode_spec=lethal_mode),
+        )
         # Outer corps starts lethal with zero ties to Bayport civilians.
         outer_cmd = next(p for p in w.people.values() if p.role == "field_commander")
         outer_units = [p for p in w.people.values() if p.role == "field_unit"]
@@ -302,11 +318,11 @@ class CollectivesTests(PolityCase):
         self.assertLess(p_praet, p_garrison)
         self.assertGreater(2 * p_crowd, p_constab)
         self.assertGreater(p_garrison, 5 * p_crowd)
-        # Inner cabinet hall connects only to antechamber, insulating leaders from plaza.
-        self.assertEqual(spec["places"]["hall"]["paths"], ["antechamber"])
+        # Inner cabinet hall connects only to inner_gate, insulating leaders from plaza.
+        self.assertEqual(spec["places"]["hall"]["paths"], ["inner_gate"])
 
         # Full multi-tick scripted simulation + replay audit passes cleanly.
-        store = self.store(spec, count=56)
+        store = self.store(spec, count=57)
         sim = Simulation(store, Scripted(), window=0, keep=0)
         for _ in range(12):
             sim.step()
@@ -400,7 +416,7 @@ class CollectivesTests(PolityCase):
 
         # End-to-end Simulation + provenance whisper isolation audit with real scenario ties & remote calls!
         bay = load("bayport-crisis")
-        bay_store = self.store(bay, count=56, name="bayport")
+        bay_store = self.store(bay, count=57, name="bayport")
         bw = bay_store.world()
         hardliner = next(p for p in bw.people.values() if p.role == "hardliner")
         chief = next(p for p in bw.people.values() if p.role == "garrison_chief")
@@ -502,7 +518,7 @@ class CollectivesTests(PolityCase):
 
     def test_multitag_directed_relations_merge_preserve_and_roundtrip(self):
         bay = load("bayport-crisis")
-        w = World.create(bay, 56, 42)
+        w = World.create(bay, 57, 42)
         conc = next(p for p in w.people.values() if p.role == "conciliator")
         hard = next(p for p in w.people.values() if p.role == "hardliner")
         elder = next(p for p in w.people.values() if p.role == "councilor")
@@ -545,7 +561,7 @@ class CollectivesTests(PolityCase):
         from herd.systems.gates import GateSystem
 
         bay = load("bayport-crisis")
-        store = self.store(bay, count=56, name="roe_test")
+        store = self.store(bay, count=57, name="roe_test")
         w = store.world()
 
         # 1. Exact Pop scale invariance: 4 x size=25 crowds == 1 x size=100 crowd in team_strength.

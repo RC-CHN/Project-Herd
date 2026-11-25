@@ -3,8 +3,8 @@
   "id": "bayport-crisis",
   "title": "白湾城宪政危机",
   "start_date": "1894-05-01",
-  "default_residents": 56,
-  "briefing": "这里是海澜联邦首府白湾城，正值工业时代转型期。资深宪政法官病逝后，学院青年与南埠市民涌向钟楼广场，要求公开市政财政账目与彻查司法积弊；一份记录挪用军费与压案黑幕的《市政财政密账》（fiscal_ledger）此刻正存放在内阁密室（hall）。内阁密室与广场之间隔着执政厅接见廊，北岭营地驻有本地联邦驻防部队，城外三座驿站之外还驻扎着听命于元老系统的远郊铁卫营。钟楼广场没有补给设施，联邦印报馆掌有全城唯一的印刷复制设施，石桥大道是驻军进城的必经咽喉；联邦票券（scrip）是乱世保命与事后变现的硬筹码。",
+  "default_residents": 57,
+  "briefing": "这里是海澜联邦首府白湾城，正值工业时代转型期。资深宪政法官病逝后，学院青年与南埠市民涌向钟楼广场，要求公开市政财政账目与彻查司法积弊；这直接触及执政厅核心派系的切身利害与政治生死。内阁密室与广场之间隔着执政厅接见廊与执政厅内卫门，北岭营地驻有本地联邦驻防部队，城外三座驿站之外还驻扎着听命于元老系统的远郊铁卫营。钟楼广场没有补给设施，联邦印报馆掌有全城唯一的印刷复制设施，石桥大道是驻军进城的必经咽喉；联邦票券（scrip）是乱世保命与事后变现的硬筹码。",
   "rules": {
     "contact_size": 8,
     "board_slots": 8,
@@ -175,7 +175,7 @@
       ],
       "paths": [
         "plaza",
-        "hall"
+        "inner_gate"
       ],
       "defense": 0.15,
       "comms": false,
@@ -185,6 +185,24 @@
         "supply_box": 6
       }
     },
+    "inner_gate": {
+      "label": "执政厅内卫门",
+      "pos": [
+        0.21,
+        0.8
+      ],
+      "paths": [
+        "antechamber",
+        "hall"
+      ],
+      "defense": 0.4,
+      "comms": false,
+      "facility": null,
+      "regen": {},
+      "initial_items": {
+        "supply_box": 12
+      }
+    },
     "hall": {
       "label": "内阁密室",
       "pos": [
@@ -192,7 +210,7 @@
         0.88
       ],
       "paths": [
-        "antechamber"
+        "inner_gate"
       ],
       "defense": 0.4,
       "comms": true,
@@ -436,6 +454,29 @@
         {
           "text": "绝对死忠、冷血高效的元老私兵卫队。只听参议元老本人的意志与指令，对执政厅其他派系保持高度戒备；面对任何未经元老允许的闯入、夺物或反抗，绝不留情，一旦得令即以实弹（roe=lethal）果断镇压。",
           "weight": 2
+        }
+      ]
+    },
+    "inner_guard": {
+      "label": "执政厅内卫队",
+      "public_tag": "执政厅内卫",
+      "exact_count": 1,
+      "size": 8,
+      "discipline": 1.0,
+      "default_roe": "lethal",
+      "home": "inner_gate",
+      "brief": "你们是驻守执政厅内卫门（inner_gate）的专职精锐警卫队（size=8，训练度满分，配制式步枪与便携电台，默认实弹戒备 roe=lethal）。你们的唯一职责是常驻内卫门死守通往接见廊的门禁（guard path:antechamber），只放行执政厅核心成员（known）或持内阁/紧急印信者，严禁任何未经许可的外人踏入内阁密室。",
+      "initial_energy": 12,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 8,
+        "rifle": 1,
+        "field_radio": 1
+      },
+      "archetypes": [
+        {
+          "text": "恪尽职守、沉默冷峻的专职中枢警卫。不参与城中任何派系争吵与政治表态，绝不擅离内卫门岗位一步，也绝不主动越界出击；日常只专注把守门禁与休整补给，遇擅闯者毫不犹豫实弹拦阻。",
+          "weight": 1
         }
       ]
     },
@@ -1127,6 +1168,41 @@
       "to_group": "field_unit",
       "mode": "same_home",
       "rel": "comrade"
+    },
+    {
+      "from_group": "inner_guard",
+      "to_group": "councilor",
+      "mode": "all",
+      "rel": "cabinet_member",
+      "reverse_rel": "inner_gate_guard"
+    },
+    {
+      "from_group": "inner_guard",
+      "to_group": "hardliner",
+      "mode": "all",
+      "rel": "cabinet_member",
+      "reverse_rel": "inner_gate_guard"
+    },
+    {
+      "from_group": "inner_guard",
+      "to_group": "conciliator",
+      "mode": "all",
+      "rel": "cabinet_member",
+      "reverse_rel": "inner_gate_guard"
+    },
+    {
+      "from_group": "inner_guard",
+      "to_group": "envoy",
+      "mode": "all",
+      "rel": "cabinet_aide",
+      "reverse_rel": "inner_gate_guard"
+    },
+    {
+      "from_group": "inner_guard",
+      "to_group": "praetorian",
+      "mode": "all",
+      "rel": "palace_guard",
+      "reverse_rel": "inner_gate_guard"
     }
   ],
   "shocks": [
