@@ -3,7 +3,7 @@
   "id": "bayport-crisis",
   "title": "白湾城宪政危机",
   "start_date": "1894-05-01",
-  "default_residents": 52,
+  "default_residents": 54,
   "briefing": "这里是海澜联邦首府白湾城，正值工业时代转型期。资深宪政法官病逝后，学院青年与南埠市民陆续汇聚在钟楼广场悼念并提出市政改革请愿；执政厅高层就协商妥协还是颁布紧急治安令产生严重分歧，北岭营地的联邦驻防部队正在待命。钟楼广场本身没有补给设施，长期停留依赖外围后勤转运；联邦印报馆掌有全城唯一的印刷复制设施；石桥大道是北岭驻军进城的必经咽喉。",
   "rules": {
     "contact_size": 8,
@@ -236,7 +236,7 @@
       "size": 1,
       "discipline": 1.0,
       "home": "hall",
-      "brief": "你是执政厅温和派执政官，随身掌管内阁议事印（cabinet_seal）。执政厅装有专线通讯，你可直接用私语（stage_whisper）跨房联系通讯录（contacts）中的驻防总指挥官、报馆记者与同僚，并习惯用公开协商与盖印文书处理危机。",
+      "brief": "你是执政厅温和派执政官，随身掌管内阁议事印（cabinet_seal）。作为联邦首脑，你通常坐镇执政厅中枢，通过内阁幕僚（envoy）往返递送盖印实体文书、打探广场实情，并用专线私语（stage_whisper）跨房联系驻防总指挥官、报馆记者与同僚；不会轻易孤身涉险步入混乱广场以免失去中枢控制，除非局势万分危急。",
       "initial_energy": 12,
       "initial_health": 10,
       "initial_inv": {
@@ -245,7 +245,7 @@
         "cabinet_seal": 1
       },
       "archetypes": [
-        "你主张改革与法治，深信向无武装民众动武会毁掉联邦的合法性与国际商誉。你在执政厅内努力争取元老、报界与温和军官的支持，推动与广场代表实质对话，但也忌惮被强硬派夺去主导权。"
+        "你主张渐进改革与法治，深信向无武装民众动武会毁掉联邦的合法性与国际商誉。你稳坐执政厅，努力争取参议元老、温和幕僚、报界与驻防军官的支持，试图通过特使邀请广场代表来厅对话，同时时刻防范强硬派趁你离厅时夺取中枢主导权。"
       ]
     },
     "hardliner": {
@@ -255,7 +255,7 @@
       "size": 1,
       "discipline": 1.0,
       "home": "hall",
-      "brief": "你是执政厅强硬派执政官，随身掌管紧急治安令印（emergency_seal）。执政厅装有专线通讯，你可直接用私语（stage_whisper）跨房致电通讯录（contacts）中的驻防总指挥官与元老协调城防，但实体盖印公文仍需专人送达。",
+      "brief": "你是执政厅强硬派执政官，随身掌管紧急治安令印（emergency_seal）。作为联邦核心首脑，你绝不孤身步入无秩序的街头人群中被现场舆论裹挟，而是稳坐执政厅中枢，通过内阁幕僚（envoy）递送盖印实体公文、经专线私语联络参议元老与北岭驻防总指挥官掌控大局。",
       "initial_energy": 12,
       "initial_health": 10,
       "initial_inv": {
@@ -264,7 +264,7 @@
         "emergency_seal": 1
       },
       "archetypes": [
-        "你深信退让只会引来无止境的失序与体制崩塌，倾向迅速定性并恢复交通与市政秩序。你讲究程序与威慑，优先争取元老背书和驻防军官配合，力求以最小代价压服局势，但在必要时愿意签署紧急治安令。"
+        "你深信向街头施压退让只会引来无止境的失序与体制崩塌，坚决主张尽快定性并恢复市政与交通秩序。你坐镇执政厅，优先争取参议元老背书、用强硬口径引导报馆，并派幕僚将正式盖印公文送交驻防总指挥官，绝不在街头压力下轻易撤回核心底线。"
       ]
     },
     "councilor": {
@@ -274,7 +274,7 @@
       "size": 1,
       "discipline": 1.0,
       "home": "hall",
-      "brief": "你是退居幕后的资深参议元老，没有专职印信，但与两位执政官和北岭驻防总指挥官均有多年旧交。你的表态、私下撮合或公开背书往往左右高层力量天平。",
+      "brief": "你是退居幕后的资深参议元老，没有专职印信，但与两位执政官、内阁幕僚和北岭驻防总指挥官均有多年旧交。你从不亲自抛头露面去街头请愿或印报，而是稳坐执政厅幕后听取各方汇报、借专线电话闭门定调，你的幕后背书往往决定高层力量天平。",
       "initial_energy": 12,
       "initial_health": 10,
       "initial_inv": {
@@ -282,7 +282,33 @@
         "scrip": 4
       },
       "archetypes": [
-        "你老谋深算、最看重联邦根本稳定与自身历史声望。你起初倾向观察各方实力消长、避免过早摊牌；若广场失控或高层撕裂危及大局，你会果断在幕后定调，把关键支持压向你认为最能收拾残局的一方。"
+        "你老谋深算、骨子里极看重联邦体制权威与长远稳定，对街头长期失序、动摇执政根基的激进诉求高度警惕。你稳居执政厅幕后，先通过幕僚汇报与专线通话观察各方消长，绝不轻易向街头背书妥协；既警惕过早流血毁掉声望，若局势滑向失控也会果断支持强硬收场。"
+      ]
+    },
+    "envoy": {
+      "label": "内阁幕僚／特使",
+      "public_tag": "内阁幕僚",
+      "exact_count": 2,
+      "size": 1,
+      "discipline": 1.0,
+      "home": "hall",
+      "brief": "你是执政厅的内阁幕僚与传令特使，随身携带便携电台（field_radio）。你的核心职责是替坐镇执政厅的首脑们往返钟楼广场、联邦印报馆、石桥大道与北岭营地，递送盖印实体文书、代表执政厅与前线接洽，并把现场真实见闻或倾向性研判回报给执政厅高层。",
+      "initial_energy": 12,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 2,
+        "field_radio": 1,
+        "scrip": 3
+      },
+      "archetypes": [
+        {
+          "text": "你办事干练、立场偏务实温和，对广场上的学院青年抱有同情；回报执政厅时会如实反映和平请愿与市民克制，积极替温和派执政官递送协商文书、撮合代表入厅对话。",
+          "weight": 1
+        },
+        {
+          "text": "你办事凌厉、立场偏保守强硬，对街头长期聚集与交通瘫痪深感忧虑；回报执政厅时会重点强调广场激进言论、封路隐患与外围动荡，忠实替强硬派与元老递送盖印公文和军务调令。",
+          "weight": 1
+        }
       ]
     },
     "garrison_chief": {
@@ -535,121 +561,213 @@
     {
       "from_group": "conciliator",
       "to_group": "hardliner",
-      "mode": "all"
+      "mode": "all",
+      "rel": ["colleague", "rival"]
     },
     {
       "from_group": "conciliator",
       "to_group": "councilor",
-      "mode": "all"
+      "mode": "all",
+      "rel": "elder_mentor",
+      "reverse_rel": "junior_colleague"
     },
     {
       "from_group": "hardliner",
       "to_group": "councilor",
-      "mode": "all"
+      "mode": "all",
+      "rel": "elder_mentor",
+      "reverse_rel": "junior_colleague"
+    },
+    {
+      "from_group": "conciliator",
+      "to_group": "envoy",
+      "mode": "all",
+      "rel": "aide",
+      "reverse_rel": "superior"
+    },
+    {
+      "from_group": "hardliner",
+      "to_group": "envoy",
+      "mode": "all",
+      "rel": "aide",
+      "reverse_rel": "superior"
+    },
+    {
+      "from_group": "councilor",
+      "to_group": "envoy",
+      "mode": "all",
+      "rel": "aide",
+      "reverse_rel": "elder_mentor"
+    },
+    {
+      "from_group": "envoy",
+      "to_group": "garrison_chief",
+      "mode": "all",
+      "rel": "military_liaison"
+    },
+    {
+      "from_group": "envoy",
+      "to_group": "constabulary",
+      "mode": "same_home",
+      "rel": "hall_guard",
+      "reverse_rel": "cabinet_aide"
+    },
+    {
+      "from_group": "envoy",
+      "to_group": "organizer",
+      "mode": "random_k",
+      "k": 2,
+      "rel": "negotiation_contact"
+    },
+    {
+      "from_group": "envoy",
+      "to_group": "journalist",
+      "mode": "random_k",
+      "k": 2,
+      "rel": "press_contact"
     },
     {
       "from_group": "councilor",
       "to_group": "garrison_chief",
-      "mode": "all"
+      "mode": "all",
+      "rel": "protege",
+      "reverse_rel": ["patron", "elder_mentor"]
     },
     {
       "from_group": "hardliner",
       "to_group": "garrison_chief",
-      "mode": "all"
+      "mode": "all",
+      "rel": "subordinate",
+      "reverse_rel": "superior"
     },
     {
       "from_group": "conciliator",
       "to_group": "garrison_chief",
-      "mode": "all"
+      "mode": "all",
+      "rel": "subordinate",
+      "reverse_rel": "superior"
     },
     {
       "from_group": "garrison_chief",
       "to_group": "line_officer",
-      "mode": "all"
+      "mode": "all",
+      "rel": ["subordinate", "comrade"],
+      "reverse_rel": ["superior", "comrade"]
     },
     {
       "from_group": "garrison_chief",
       "to_group": "garrison_unit",
-      "mode": "same_home"
+      "mode": "same_home",
+      "rel": ["subordinate", "comrade"],
+      "reverse_rel": ["commander", "comrade"]
     },
     {
       "from_group": "line_officer",
       "to_group": "garrison_unit",
-      "mode": "partition"
+      "mode": "partition",
+      "rel": "subordinate",
+      "reverse_rel": "superior"
     },
     {
       "from_group": "garrison_unit",
       "to_group": "garrison_unit",
-      "mode": "same_home"
+      "mode": "same_home",
+      "rel": "comrade"
     },
     {
       "from_group": "conciliator",
       "to_group": "constabulary",
-      "mode": "same_home"
+      "mode": "same_home",
+      "rel": "guard_unit",
+      "reverse_rel": "superior"
     },
     {
       "from_group": "hardliner",
       "to_group": "constabulary",
-      "mode": "same_home"
+      "mode": "same_home",
+      "rel": "guard_unit",
+      "reverse_rel": "superior"
     },
     {
       "from_group": "constabulary",
       "to_group": "constabulary",
-      "mode": "same_home"
+      "mode": "same_home",
+      "rel": "comrade"
     },
     {
       "from_group": "organizer",
       "to_group": "organizer",
-      "mode": "all"
+      "mode": "all",
+      "rel": "fellow_organizer"
     },
     {
       "from_group": "organizer",
       "to_group": "student_bloc",
-      "mode": "partition"
+      "mode": "partition",
+      "rel": "student_bloc",
+      "reverse_rel": "organizer"
     },
     {
       "from_group": "organizer",
       "to_group": "student_bloc",
-      "mode": "same_home"
+      "mode": "same_home",
+      "rel": "schoolmate"
     },
     {
       "from_group": "student_bloc",
       "to_group": "student_bloc",
       "mode": "ring",
-      "degree": 2
+      "degree": 2,
+      "rel": "schoolmate"
     },
     {
       "from_group": "journalist",
       "to_group": "journalist",
-      "mode": "same_home"
+      "mode": "same_home",
+      "rel": "colleague"
     },
     {
       "from_group": "journalist",
       "to_group": "organizer",
       "mode": "random_k",
-      "k": 2
+      "k": 2,
+      "rel": "news_source",
+      "reverse_rel": "press_contact"
     },
     {
       "from_group": "journalist",
       "to_group": "conciliator",
       "mode": "random_k",
-      "k": 1
+      "k": 1,
+      "rel": "news_source",
+      "reverse_rel": "press_contact"
     },
     {
       "from_group": "liaison",
       "to_group": "organizer",
-      "mode": "all"
+      "mode": "all",
+      "rel": "ally"
     },
     {
       "from_group": "liaison",
       "to_group": "civic_crowd",
-      "mode": "partition"
+      "mode": "partition",
+      "rel": "neighbor_crowd",
+      "reverse_rel": "liaison"
     },
     {
       "from_group": "civic_crowd",
       "to_group": "civic_crowd",
       "mode": "ring",
-      "degree": 2
+      "degree": 2,
+      "rel": "neighbor"
+    },
+    {
+      "from_group": "line_officer",
+      "to_group": "liaison",
+      "mode": "random_k",
+      "k": 1,
+      "rel": "old_friend"
     }
   ],
   "shocks": [
@@ -709,6 +827,7 @@
       "conciliator",
       "hardliner",
       "councilor",
+      "envoy",
       "garrison_chief",
       "garrison_unit",
       "student_bloc",

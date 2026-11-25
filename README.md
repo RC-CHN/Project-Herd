@@ -99,7 +99,7 @@ python3 -m herd run --db /tmp/bayport.sqlite --backends backends.json --ticks 63
 | 剧本 ID | 名称 | 默认规模 | 核心结构特点 | 文件 |
 | :--- | :--- | :--- | :--- | :--- |
 | `citystate-coup` | 瓦尔登城邦危机 | 54 个体（纯 `size=1`） | 6 节点古典城邦、单一国玺、纯面对面与物理送信、风暴减产与寒潮耗能冲击 | [citystate-coup.json](herd/scenarios/citystate-coup.json) |
-| `bayport-crisis` | 白湾城宪政危机 | 52 Agent（16 个体 + 36 Pop，总人口 610） | 7 节点工业联邦首都、三枚竞争印信、有线站点与便携电台跨房通联、高纪律建制单位 vs 低组织度自发人群 | [bayport-crisis.json](herd/scenarios/bayport-crisis.json) |
+| `bayport-crisis` | 白湾城宪政危机 | 54 Agent（18 个体 + 36 Pop，总人口 612） | 7 节点工业联邦首都、三枚竞争印信、内阁幕僚传令层、有线站点与便携电台跨房通联、高纪律建制单位 vs 低组织度自发人群 | [bayport-crisis.json](herd/scenarios/bayport-crisis.json) |
 
 ---
 
@@ -137,7 +137,7 @@ flowchart LR
 - **`force` 强攻**：目标为 `path:<邻地>`、`items` 或 `person:<同地编号>`。已获放行者直接和平通过；人物强攻胜出且败者存活时会缴械掉落一件武器或重物到地面；战败负伤会打断同轮取物与交付；在场旁观者（通道冲突含两端房间）都会收到 `combat_witness` 目击事件。
 
 ### 3. 通讯、文书与昼夜时钟
-- **面对面与跨房通讯**：`speech` 面向同桌成员（`near`）；`whisper` 面向 1~4 名同地对象，旁观者按人群规模与昼夜系数（`night_whisper_multiplier`）概率察觉。当独立个体或高组织度建制单元（`discipline >= 0.7`）身处有线通讯点（`comms: true`）或持有 `kind: "comm"` 便携通讯器时，可用 `whisper` 直接跨房联系 `contacts` 中的熟人（仅传口信、不可递交实物或验印，对方无通讯条件时返回无法接通；`size > 1` 且 `discipline < 0.7` 的自发群体只能靠现场交谈、代表中转或公墙传单动员）。
+- **面对面与跨房通讯**：`speech` 面向同桌成员（`near`）；`whisper` 面向 1~4 名同地对象，旁观者按人群规模与昼夜系数（`night_whisper_multiplier`）概率察觉。`contacts`、`near` 与 `others_in_room` 均附带多重有向关系标签 `rels`（如上级、部下、同袍、同僚、恩师、旧友、政敌等，局中新相识记为 `acquaintance`）。当独立个体或高组织度建制单元（`discipline >= 0.7`）身处有线通讯点（`comms: true`）或持有 `kind: "comm"` 便携通讯器时，可用 `whisper` 直接跨房联系 `contacts` 中的熟人（仅传口信、不可递交实物或验印，对方无通讯条件时返回无法接通；`size > 1` 且 `discipline < 0.7` 的自发群体只能靠现场交谈、代表中转或公墙传单动员）。
 - **文书与经济**：无主实物全部公开在房间 `items`/`docs` 中，同屋搬运、交付与被拦记录见 `recent_room`。采集设施（`harvest`）产出物资，印刷设施（`press`）复制文书，印信（`seal`）可用于验印放行或文书盖印。
 - **昼夜与生理**：按 `clock_interval` 推进 `day` 与 `time_of_day`（9 轮完整昼夜周期），每周期结算体能衰减、物资再生与体能充沛时的自然自愈；支持可选体力消耗（`exertion_energy_cost`）及定时自然/通讯冲击（`regen_multiplier`、`energy_decay_set`、`items_delta`、`drop_doc`、`comms_set`）。
 

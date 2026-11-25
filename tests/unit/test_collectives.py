@@ -219,14 +219,15 @@ class CollectivesTests(PolityCase):
         spec = load("bayport-crisis")
         w = World.create(spec, spec["default_residents"], 42)
         counts = Counter(p.role for p in w.people.values())
-        self.assertEqual(len(w.people), 52)
-        self.assertEqual(sum(p.size for p in w.people.values()), 610)
+        self.assertEqual(len(w.people), 54)
+        self.assertEqual(sum(p.size for p in w.people.values()), 612)
         self.assertEqual(
             counts,
             dict(
                 conciliator=1,
                 hardliner=1,
                 councilor=1,
+                envoy=2,
                 garrison_chief=1,
                 line_officer=2,
                 organizer=4,
@@ -252,7 +253,7 @@ class CollectivesTests(PolityCase):
         self.assertGreater(p_garrison, 5 * p_crowd)
 
         # Full multi-tick scripted simulation + replay audit passes cleanly.
-        store = self.store(spec, count=52)
+        store = self.store(spec, count=54)
         sim = Simulation(store, Scripted(), window=0, keep=0)
         for _ in range(12):
             sim.step()
@@ -300,7 +301,7 @@ class CollectivesTests(PolityCase):
         view = w.observe(caller.id)
         self.assertTrue(view["room_comms"])
         self.assertTrue(view["can_remote_comm"])
-        self.assertIn(dict(id=remote_radio.id, tag=remote_radio.tag), view["contacts"])
+        self.assertIn(dict(id=remote_radio.id, tag=remote_radio.tag, rels=["acquaintance"]), view["contacts"])
         # Spontaneous crowds (size>1, discipline<0.7) cannot use remote comms even in a comms room or holding a radio.
         remote_silent.inv["radio"] = 1
         self.assertFalse(w.observe(remote_silent.id)["can_remote_comm"])
@@ -346,7 +347,7 @@ class CollectivesTests(PolityCase):
 
         # End-to-end Simulation + provenance whisper isolation audit with real scenario ties & remote calls!
         bay = load("bayport-crisis")
-        bay_store = self.store(bay, count=52, name="bayport")
+        bay_store = self.store(bay, count=54, name="bayport")
         bw = bay_store.world()
         hardliner = next(p for p in bw.people.values() if p.role == "hardliner")
         chief = next(p for p in bw.people.values() if p.role == "garrison_chief")
@@ -368,3 +369,92 @@ class CollectivesTests(PolityCase):
         self.assertTrue(
             any(e["kind"] == "whisper" and e["source"] == hardliner.id and e["detail"] == "stand by at north camp" for e in chief_inbox)
         )
+
+    def test_agent_loop_renders_history_as_native_tool_calls_with_prefix_stability(self):
+        import json
+        from herd.runtime.prefix import message_key
+
+        spec = collective_spec()
+        store = self.store(spec, count=5, name="tool_hist")
+        w0 = store.world()
+        leader = next(p for p in w0.people.values() if p.role == "leader")
+        peer = next(p for p in w0.people.values() if p.role == "unit")
+
+        def decide(actor, v):
+            if actor == leader.id and v["tick"] == 0:
+                return dict(
+                    action="guard",
+                    target="path:annex",
+                    detail=f"allow:{peer.id}",
+                    speech="holding doorway",
+                    whisper_to=peer.id,
+                    whisper="stay ready",
+                    note_key="plan",
+                    note="guard annex",
+                )
+            if actor == leader.id and v["tick"] == 1:
+                return dict(action="move", target="annex")
+            return dict(action="wait")
+
+        sim = Simulation(store, Decisions(decide), window=0, keep=0)
+        sim.step()
+        req1 = ResidentAgent(leader.id, "p").prepare(store, store.world(), 0, 0, 60000, mode="agent_loop")
+        # Turn 0 history must be rendered as standard assistant(tool_calls) + tool responses, NOT raw JSON text.
+        asst0 = req1.messages[2]
+        self.assertEqual(asst0["role"], "assistant")
+        self.assertEqual(asst0["content"], "")
+        names0 = [c["function"]["name"] for c in asst0["tool_calls"]]
+        self.assertEqual(names0, ["write_note", "stage_speech", "stage_whisper", "guard"])
+        guard_args = json.loads(asst0["tool_calls"][3]["function"]["arguments"])
+        self.assertEqual(guard_args, {"target": "path:annex", "allow_pass": f"allow:{peer.id}"})
+        tool_msgs = req1.messages[3:7]
+        self.assertTrue(all(m["role"] == "tool" for m in tool_msgs))
+        self.assertEqual([m["tool_call_id"] for m in tool_msgs], [c["id"] for c in asst0["tool_calls"]])
+
+        # Appending Turn 1 must preserve exact prefix monotonicity in message_key (KV cache safe!).
+        sim.step()
+        req2 = ResidentAgent(leader.id, "p").prepare(store, store.world(), 0, 0, 60000, mode="agent_loop")
+        self.assertTrue(message_key(req2.messages).startswith(message_key(req1.messages[:-1])))
+        asst1 = req2.messages[8]
+        self.assertEqual([c["function"]["name"] for c in asst1["tool_calls"]], ["move"])
+        self.assertEqual(json.loads(asst1["tool_calls"][0]["function"]["arguments"]), {"place": "annex"})
+
+        # json mode continues rendering flat JSON assistant content untouched.
+        req_json = ResidentAgent(leader.id, "p").prepare(store, store.world(), 0, 0, 60000, mode="json")
+        self.assertNotIn("tool_calls", req_json.messages[2])
+        self.assertEqual(json.loads(req_json.messages[2]["content"])["action"], "guard")
+
+    def test_multitag_directed_relations_merge_preserve_and_roundtrip(self):
+        bay = load("bayport-crisis")
+        w = World.create(bay, 54, 42)
+        conc = next(p for p in w.people.values() if p.role == "conciliator")
+        hard = next(p for p in w.people.values() if p.role == "hardliner")
+        elder = next(p for p in w.people.values() if p.role == "councilor")
+        chief = next(p for p in w.people.values() if p.role == "garrison_chief")
+        officers = [p for p in w.people.values() if p.role == "line_officer"]
+        units = [p for p in w.people.values() if p.role == "garrison_unit"]
+
+        # Multi-tag symmetric tie: conciliator <-> hardliner are both colleague and rival.
+        self.assertEqual(conc.rels_for(hard.id), ["colleague", "rival"])
+        self.assertEqual(hard.rels_for(conc.id), ["colleague", "rival"])
+        # Directed multi-tag tie: councilor sees chief as protege; chief sees councilor as patron + elder_mentor.
+        self.assertEqual(elder.rels_for(chief.id), ["protege"])
+        self.assertEqual(chief.rels_for(elder.id), ["patron", "elder_mentor"])
+        # Chain of command: each garrison_unit sees its partitioned line_officer as superior and chief as commander+comrade.
+        for unit in units:
+            self.assertEqual(unit.rels_for(chief.id), ["commander", "comrade"])
+            superiors = [o.id for o in officers if "superior" in unit.rels_for(o.id)]
+            self.assertEqual(len(superiors), 1)
+        # Dynamic whisper/connect does not clobber formal relations, while new strangers get ["acquaintance"].
+        conc.connect(hard.id)
+        self.assertEqual(conc.rels_for(hard.id), ["colleague", "rival"])
+        stranger = next(p for p in w.people.values() if p.id not in conc.relations and p.id != conc.id)
+        conc.connect(stranger.id)
+        self.assertEqual(conc.rels_for(stranger.id), ["acquaintance"])
+        # Legacy snapshot without `relations` migrates cleanly from `contacts`.
+        legacy = w.to_dict()
+        for data in legacy["people"].values():
+            rels = data.pop("relations")
+            data["contacts"] = list(rels.keys())
+        restored = World.from_dict(legacy)
+        self.assertEqual(restored.people[conc.id].rels_for(hard.id), ["known"])
