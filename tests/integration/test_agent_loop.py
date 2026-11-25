@@ -31,8 +31,11 @@ class OfflineChat(ChatAPI):
     def post(self, url, body):
         assert body.get("tools") and "response_format" not in body
         messages = body["messages"]
-        # Previous turns contain a flat intent. Only the current turn has tool calls.
-        step = sum(bool(m.get("tool_calls")) for m in messages)
+        # Count only tool-call steps inside the current turn (after the latest opening user frame).
+        last_frame = max(
+            i for i, m in enumerate(messages) if m["role"] == "user" and m["content"].startswith("{")
+        )
+        step = sum(bool(m.get("tool_calls")) for m in messages[last_frame + 1 :])
         actor = json.loads(messages[1]["content"].split("\n")[0])["id"]
         self.calls.append((actor, step))
         calls = self.respond(actor, step, messages)

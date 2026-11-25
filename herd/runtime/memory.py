@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 import json
 
-from ..model import RULES, encode
+from ..model import RULES, Intent, encode
 from ..model.intent import WORLD_RULES
 from ..model.observation import local_context
 
@@ -58,6 +58,87 @@ def identity_block(person, persona):
 
 def message(role, content):
     return {"role": role, "content": content}
+
+
+def _action_tool_call(intent):
+    action = intent.action
+    if action == "wait":
+        return "wait", {}
+    if action == "eat":
+        return "eat", ({"item": intent.item} if intent.item else {})
+    if action == "produce":
+        target = intent.target or intent.item
+        return "produce", ({"target": target} if target else {})
+    if action == "take":
+        args = {"item": intent.item}
+        if intent.qty:
+            args["qty"] = int(intent.qty)
+        return "take", args
+    if action == "give":
+        args = {"target": intent.target, "item": intent.item}
+        if intent.qty:
+            args["qty"] = int(intent.qty)
+        return "give", args
+    if action == "move":
+        return "move", {"place": intent.target}
+    if action == "guard":
+        return "guard", {"target": intent.target, "allow_pass": intent.detail or "none"}
+    if action == "force":
+        return "force", {"target": intent.target}
+    if action == "write":
+        args = {"text": intent.detail}
+        if intent.item:
+            args["seal"] = intent.item
+        if intent.target == "post":
+            args["post"] = True
+        return "write_document", args
+    if action == "post":
+        return "post_document", {"doc_id": intent.target}
+    if action == "endorse":
+        return "endorse", {"doc_id": intent.target}
+    if action == "offer":
+        return "offer", {
+            "item": intent.item,
+            "qty": int(intent.qty or 1),
+            "want": intent.target,
+            "detail": intent.detail,
+        }
+    if action == "accept":
+        return "accept", {"offer_id": intent.target}
+    return "wait", {}
+
+
+def render_tool_history(tick, reply_raw):
+    """Project an archived canonical Intent into standard OpenAI tool_calls + tool messages."""
+    intent = Intent.parse(reply_raw)
+    specs = []
+    if intent.note_key:
+        if intent.note:
+            specs.append(("write_note", {"key": intent.note_key, "text": intent.note}, {"ok": True}))
+        else:
+            specs.append(("delete_note", {"key": intent.note_key}, {"ok": True}))
+    if intent.speech:
+        specs.append(("stage_speech", {"text": intent.speech}, {"ok": True, "staged": "speech"}))
+    if intent.whisper and intent.whisper_to:
+        targets = [peer.strip() for peer in intent.whisper_to.split(",") if peer.strip()]
+        specs.append(("stage_whisper", {"targets": targets, "text": intent.whisper}, {"ok": True, "staged": "whisper"}))
+    act_name, act_args = _action_tool_call(intent)
+    specs.append((act_name, act_args, {"ok": True, "committed": intent.action}))
+    calls, tool_msgs = [], []
+    for idx, (name, args, result) in enumerate(specs):
+        call_id = f"h-{tick}-{idx}"
+        calls.append({"type": "function", "id": call_id, "function": {"name": name, "arguments": encode(args)}})
+        tool_msgs.append({"role": "tool", "tool_call_id": call_id, "content": encode(result)})
+    return [{"role": "assistant", "content": "", "tool_calls": calls}, *tool_msgs]
+
+
+def message_bytes(messages):
+    total = 0
+    for m in messages:
+        total += len(m["content"].encode()) + 12
+        if "tool_calls" in m:
+            total += len(encode(m["tool_calls"]).encode())
+    return total
 
 
 def compress(previous_digest, delivered_events, *, limits=(16, 12, 12)):
@@ -119,7 +200,7 @@ class ResidentAgent:
                 "仅在需要核实文书全文、回忆某人过往或搜索线索时再调用查询工具。"
                 "你可以在同一步并行调用 write_note、stage_speech、stage_whisper 和唯一的世界行动提交工具；"
                 "每轮步数有限（工具返回会提示 remaining_steps），查清关键信息后请果断提交唯一的世界行动。"
-                "工具报错时可更正参数重试。历史对话中的 JSON 是往轮已提交的决定。\n" + WORLD_RULES
+                "工具报错时可更正参数重试。历史对话中的工具调用记录是往轮已提交的决定。\n" + WORLD_RULES
             )
         system_prompt = "\n".join(
             (rules, spec["briefing"], format_map(spec), group["brief"], identity_block(person, self.persona))
@@ -130,10 +211,14 @@ class ResidentAgent:
             identity = {"id": self.actor, "older_observations": digest}
             messages = [message("system", system_prompt)]
             for turn in history:
-                messages.extend([message("user", turn["frame"]), message("assistant", turn["reply"])])
+                messages.append(message("user", turn["frame"]))
+                if mode == "agent_loop":
+                    messages.extend(render_tool_history(turn["tick"], turn["reply"]))
+                else:
+                    messages.append(message("assistant", turn["reply"]))
             messages.append(message("user", encode(frame)))
             messages[1]["content"] = encode(identity) + "\n" + messages[1]["content"]
-            if sum(len(m["content"].encode()) + 12 for m in messages) <= byte_budget:
+            if message_bytes(messages) <= byte_budget:
                 local = {}
                 if mode == "agent_loop":
                     local = local_context(world, self.actor, meeting)

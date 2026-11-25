@@ -7,7 +7,15 @@ from ..model import encode
 
 def message_key(messages):
     # Framed messages are unambiguous and remain a prefix when a new turn is appended.
-    return b"".join(encode([m["role"], m["content"]]).encode() + b"\n" for m in messages)
+    parts = []
+    for m in messages:
+        item = [m["role"], m["content"]]
+        if "tool_calls" in m:
+            item.append(m["tool_calls"])
+        if "tool_call_id" in m:
+            item.append(m["tool_call_id"])
+        parts.append(encode(item).encode() + b"\n")
+    return b"".join(parts)
 
 
 def common_prefix(left, right):
