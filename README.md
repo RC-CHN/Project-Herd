@@ -99,7 +99,7 @@ python3 -m herd run --db /tmp/bayport.sqlite --backends backends.json --ticks 63
 | 剧本 ID | 名称 | 默认规模 | 核心结构特点 | 文件 |
 | :--- | :--- | :--- | :--- | :--- |
 | `citystate-coup` | 瓦尔登城邦危机 | 54 个体（纯 `size=1`） | 6 节点古典城邦、单一国玺、纯面对面与物理送信、风暴减产与寒潮耗能冲击 | [citystate-coup.json](herd/scenarios/citystate-coup.json) |
-| `bayport-crisis` | 白湾城宪政危机 | 56 Agent（18 个体 + 38 Pop，总人口 620） | 8 节点工业联邦首都、内阁密室与接见廊隔离、元老近卫/市政巡防/驻防正规军三层武装、三枚竞争印信与跨房通联 | [bayport-crisis.json](herd/scenarios/bayport-crisis.json) |
+| `bayport-crisis` | 白湾城宪政危机 | 57 Agent（19 个体 + 38 Pop，总人口 621） | 8 节点工业联邦首都、内阁密室与接见廊隔离、元老近卫/市政巡防/驻防正规军三层武装、三枚竞争印信、跨房通联与暗线搅局者 | [bayport-crisis.json](herd/scenarios/bayport-crisis.json) |
 
 ---
 

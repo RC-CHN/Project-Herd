@@ -222,8 +222,8 @@ class CollectivesTests(PolityCase):
         spec = load("bayport-crisis")
         w = World.create(spec, spec["default_residents"], 42)
         counts = Counter(p.role for p in w.people.values())
-        self.assertEqual(len(w.people), 56)
-        self.assertEqual(sum(p.size for p in w.people.values()), 620)
+        self.assertEqual(len(w.people), 57)
+        self.assertEqual(sum(p.size for p in w.people.values()), 621)
         self.assertEqual(
             counts,
             dict(
@@ -237,12 +237,19 @@ class CollectivesTests(PolityCase):
                 organizer=4,
                 journalist=4,
                 liaison=2,
+                syndicate_agent=1,
                 student_bloc=8,
                 civic_crowd=14,
                 constabulary=6,
                 garrison_unit=8,
             ),
         )
+        # Covert syndicate agent disguises public_tag while maintaining asymmetric cross-faction ties.
+        agent = next(p for p in w.people.values() if p.role == "syndicate_agent")
+        self.assertEqual(agent.tag, "外埠商客")
+        self.assertEqual(len(agent.relations), 4)
+        for peer_id, rels in agent.relations.items():
+            self.assertNotEqual(rels, w.people[peer_id].rels_for(agent.id))
         # Verify three unique seals exist once each and combat power hierarchy matches design intent.
         for seal in ("cabinet_seal", "emergency_seal", "garrison_seal"):
             self.assertEqual(sum(p.inv.get(seal, 0) for p in w.people.values()), 1)
@@ -262,7 +269,7 @@ class CollectivesTests(PolityCase):
         self.assertEqual(spec["places"]["hall"]["paths"], ["antechamber"])
 
         # Full multi-tick scripted simulation + replay audit passes cleanly.
-        store = self.store(spec, count=56)
+        store = self.store(spec, count=57)
         sim = Simulation(store, Scripted(), window=0, keep=0)
         for _ in range(12):
             sim.step()
@@ -356,7 +363,7 @@ class CollectivesTests(PolityCase):
 
         # End-to-end Simulation + provenance whisper isolation audit with real scenario ties & remote calls!
         bay = load("bayport-crisis")
-        bay_store = self.store(bay, count=56, name="bayport")
+        bay_store = self.store(bay, count=57, name="bayport")
         bw = bay_store.world()
         hardliner = next(p for p in bw.people.values() if p.role == "hardliner")
         chief = next(p for p in bw.people.values() if p.role == "garrison_chief")
@@ -435,7 +442,7 @@ class CollectivesTests(PolityCase):
 
     def test_multitag_directed_relations_merge_preserve_and_roundtrip(self):
         bay = load("bayport-crisis")
-        w = World.create(bay, 56, 42)
+        w = World.create(bay, 57, 42)
         conc = next(p for p in w.people.values() if p.role == "conciliator")
         hard = next(p for p in w.people.values() if p.role == "hardliner")
         elder = next(p for p in w.people.values() if p.role == "councilor")
@@ -478,7 +485,7 @@ class CollectivesTests(PolityCase):
         from herd.systems.gates import GateSystem
 
         bay = load("bayport-crisis")
-        store = self.store(bay, count=56, name="roe_test")
+        store = self.store(bay, count=57, name="roe_test")
         w = store.world()
 
         # 1. Exact Pop scale invariance: 4 x size=25 crowds == 1 x size=100 crowd in team_strength.
