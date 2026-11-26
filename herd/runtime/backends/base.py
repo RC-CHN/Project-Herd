@@ -11,6 +11,7 @@ class Backend(ABC):
     unit: str
     scope: str
     workers: int | None = None
+    context_bytes: int | None = None
     mode: str = "json"
     max_steps: int = 6
     preserve_reasoning: bool = False

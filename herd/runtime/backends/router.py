@@ -123,9 +123,11 @@ def load_backends(config):
         kind = options.pop("type", None)
         if "workers" in options:
             _positive_int(options["workers"], "workers")
+        if "context_bytes" in options:
+            _positive_int(options["context_bytes"], "context_bytes")
         if kind == "scripted" and options.get("mode") == "scripted":
             options.pop("mode")
-        if kind == "scripted" and options.keys() <= {"workers", "max_steps"}:
+        if kind == "scripted" and options.keys() <= {"workers", "max_steps", "context_bytes"}:
             profiles[name] = Scripted(name=name, **options)
         elif kind == "api" and {"base_url", "model"} <= options.keys() <= {
             "base_url",
@@ -133,6 +135,7 @@ def load_backends(config):
             "max_tokens",
             "tokenizer_path",
             "workers",
+            "context_bytes",
             "cache_key",
             "api_key_env",
             "mode",

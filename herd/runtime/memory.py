@@ -29,6 +29,44 @@ def format_map(spec):
     return "空间布局：" + "；".join(entries) + "。"
 
 
+def format_static_catalog(spec, energy_decay=None):
+    rules = spec["rules"]
+    modes = {
+        k: {
+            "label": v["label"],
+            "severity": v["severity"],
+            "lethal": v["lethal"],
+            "requires_lethal_arms": bool(v.get("requires_lethal_arms", False)),
+        }
+        for k, v in rules["force_modes"].items()
+    }
+    constants = {
+        "max_energy": rules["max_energy"],
+        "max_health": rules["max_health"],
+        "write_energy_cost": rules.get("write_energy_cost", 0),
+        "exertion_energy_cost": rules.get("exertion_energy_cost", 0),
+        "clock_interval": rules["clock_interval"],
+        "zero_energy_mode": rules.get("zero_energy_mode", "fatal"),
+        "board_slots": rules["board_slots"],
+    }
+    if energy_decay is not None:
+        constants["energy_decay"] = energy_decay
+    items = {
+        k: {ik: iv for ik, iv in v.items() if iv not in (False, 0, None, "")}
+        for k, v in sorted(spec["items"].items())
+    }
+    return (
+        "静态规则常量（不再在每轮帧中重复）："
+        f"constants={encode(constants)}；"
+        f"force_modes={encode(modes)}；"
+        f"item_catalog={encode(items)}。\n"
+        "帧压缩约定：每轮仅列出变动或非默认字段——"
+        "near/others_in_room 中未列出的布尔字段均为 false、未列出的 rels 为空；"
+        "contacts/notes 未变化时沿用前文最近一次给出值；"
+        "已见过的文书在后续帧仅列编号与最新联署/印章，全文随时可用 read_document 查阅。"
+    )
+
+
 def identity_block(person, persona):
     if not person.is_collective:
         return (
@@ -138,35 +176,151 @@ def render_tool_history(tick, reply_raw):
 
 
 DOC_PREVIEW_CHARS = 50
+FOLD_TARGET_RATIO = 0.55
+
+STATIC_VIEW_KEYS = frozenset(
+    {
+        "force_modes",
+        "max_energy",
+        "max_health",
+        "write_energy_cost",
+        "exertion_energy_cost",
+        "clock_interval",
+        "zero_energy_mode",
+        "board_slots",
+        "initial_size",
+        "discipline",
+        "self",
+    }
+)
+OMIT_IF_EMPTY_VIEW_KEYS = (
+    "docs",
+    "room_docs",
+    "board",
+    "offers",
+    "own_offers",
+    "guards",
+    "own_posture",
+    "facility",
+    "items",
+    "inv",
+    "others_in_room",
+    "exhausted",
+    "room_comms",
+    "room_sustenance",
+    "can_remote_comm",
+)
 
 
-def compact_frame_for_loop(frame, preview_chars=DOC_PREVIEW_CHARS):
-    """Trim verbose document bodies in agent_loop views; full text stays available via read_document."""
+def _compact_peer(peer):
+    if not isinstance(peer, dict):
+        return peer
+    return {k: v for k, v in peer.items() if v is not False and v != []}
+
+
+def compact_frame_for_loop(
+    frame,
+    preview_chars=DOC_PREVIEW_CHARS,
+    *,
+    static_items=None,
+    static_energy_decay=None,
+    prev_frame=None,
+    seen_docs=None,
+):
+    """Slim agent_loop frames deterministically while keeping prefix append-only and lossless."""
     view = frame.get("view")
     if not isinstance(view, dict):
         return frame
-    compact_view = None
+    compact_view = dict(view)
+    if static_items is not None:
+        for key in STATIC_VIEW_KEYS:
+            compact_view.pop(key, None)
+        if static_energy_decay is not None and compact_view.get("energy_decay") == static_energy_decay:
+            compact_view.pop("energy_decay", None)
+        item_info = compact_view.get("item_info")
+        if isinstance(item_info, dict):
+            dynamic_info = {k: v for k, v in item_info.items() if k not in static_items}
+            if dynamic_info:
+                compact_view["item_info"] = dynamic_info
+            else:
+                compact_view.pop("item_info", None)
+        paths = compact_view.get("paths")
+        if isinstance(paths, dict):
+            compact_view["paths"] = list(paths.keys())
+
+    for key in ("near", "others_in_room"):
+        entries = compact_view.get(key)
+        if isinstance(entries, list) and entries:
+            compact_view[key] = [_compact_peer(entry) for entry in entries]
+
+    prev_view = prev_frame.get("view") if isinstance(prev_frame, dict) else None
+    if isinstance(prev_view, dict) and compact_view.get("contacts") == prev_view.get("contacts"):
+        compact_view.pop("contacts", None)
+    elif isinstance(compact_view.get("contacts"), list):
+        compact_view["contacts"] = [_compact_peer(c) for c in compact_view["contacts"]]
+
     for key in ("docs", "room_docs", "board"):
-        entries = view.get(key)
+        entries = compact_view.get(key)
         if not isinstance(entries, list) or not entries:
             continue
-        trimmed = None
-        for idx, entry in enumerate(entries):
-            text = entry.get("text") if isinstance(entry, dict) else None
+        trimmed = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                trimmed.append(entry)
+                continue
+            doc_id = entry.get("id")
+            already_seen = seen_docs is not None and doc_id in seen_docs
+            if already_seen:
+                if key == "board":
+                    item = {"id": doc_id, "signed": entry.get("signed", 0)}
+                    if entry.get("signed_weight") is not None:
+                        item["signed_weight"] = entry["signed_weight"]
+                    if entry.get("seal"):
+                        item["seal"] = entry["seal"]
+                    if entry.get("known_signers"):
+                        item["known_signers"] = entry["known_signers"]
+                else:
+                    item = {"id": doc_id, "qty": entry.get("qty", 1)}
+                    if entry.get("seal"):
+                        item["seal"] = entry["seal"]
+                trimmed.append(item)
+                continue
+            if seen_docs is not None and doc_id is not None:
+                seen_docs.add(doc_id)
+            item = {k: v for k, v in entry.items() if v not in ("", None, [])}
+            text = item.get("text")
             if isinstance(text, str) and len(text) > preview_chars:
-                if trimmed is None:
-                    trimmed = list(entries)
-                item = dict(entry)
                 item["text"] = text[:preview_chars] + "…(用read_document查全文)"
-                trimmed[idx] = item
-        if trimmed is not None:
-            if compact_view is None:
-                compact_view = dict(view)
-            compact_view[key] = trimmed
-    if compact_view is None:
-        return frame
-    out = dict(frame)
-    out["view"] = compact_view
+            trimmed.append(item)
+        compact_view[key] = trimmed
+
+    recent = compact_view.get("recent_room")
+    if isinstance(recent, dict):
+        pruned = {k: v for k, v in recent.items() if v}
+        if pruned:
+            compact_view["recent_room"] = pruned
+        else:
+            compact_view.pop("recent_room", None)
+
+    for key in OMIT_IF_EMPTY_VIEW_KEYS:
+        if key in compact_view and not compact_view[key]:
+            compact_view.pop(key, None)
+
+    out = {"view": compact_view}
+    if frame.get("events"):
+        out["events"] = frame["events"]
+    notes = frame.get("notes")
+    prev_notes = prev_frame.get("notes") if isinstance(prev_frame, dict) else None
+    if prev_frame is not None:
+        if notes != prev_notes:
+            out["notes"] = notes
+    elif notes:
+        out["notes"] = notes
+    if frame.get("recall"):
+        out["recall"] = frame["recall"]
+    for extra in ("omitted_events", "omitted_notes"):
+        if frame.get(extra):
+            out[extra] = frame[extra]
     return out
 
 
@@ -201,12 +355,24 @@ class ResidentAgent:
     actor: str
     persona: str
 
-    def prepare(self, store, world, window, keep, byte_budget, meeting=None, *, mode="json"):
+    def prepare(
+        self,
+        store,
+        world,
+        window,
+        keep,
+        byte_budget,
+        meeting=None,
+        *,
+        mode="json",
+        fold_target=FOLD_TARGET_RATIO,
+    ):
         tick = world.tick
         state = store.mind(self.actor)
         initial_cut = cut = state["cut"]
         digest = state["digest"]
         history = store.history(self.actor, cut, tick)
+        parsed_history = [json.loads(turn["frame"]) for turn in history]
         meeting = meeting or world.build_index()
         view = world.observe(self.actor, meeting)
         frame = {
@@ -216,13 +382,14 @@ class ResidentAgent:
         }
 
         def fold(count):
-            nonlocal cut, digest, history
+            nonlocal cut, digest, history, parsed_history
             # The archived frame records exactly what made it into the resident's input,
             # including any omissions made to fit its context budget.
-            delivered = [event for turn in history[:count] for event in json.loads(turn["frame"])["events"]]
+            delivered = [event for raw in parsed_history[:count] for event in raw["events"]]
             digest = compress(digest, delivered)
             cut = history[count - 1]["tick"]
             history = history[count:]
+            parsed_history = parsed_history[count:]
 
         # window == 0 disables periodic folding so long local contexts stay append-only for KV cache.
         if window > 0 and len(history) >= window:
@@ -232,6 +399,8 @@ class ResidentAgent:
         person = world.people[self.actor]
         group = spec["groups"][person.role]
         rules = RULES
+        static_items = None
+        static_energy_decay = None
         if mode == "agent_loop":
             rules = (
                 "依据自己的局部观察和已送达的信息行动。开局帧已包含当前房间概况、公墙目录与你的私人笔记，"
@@ -240,32 +409,76 @@ class ResidentAgent:
                 "每轮步数有限（工具返回会提示 remaining_steps），查清关键信息后请果断提交唯一的世界行动。"
                 "工具报错时可更正参数重试。历史对话中的工具调用记录是往轮已提交的决定。\n" + WORLD_RULES
             )
-        system_prompt = "\n".join(
-            (rules, spec["briefing"], format_map(spec), group["brief"], identity_block(person, self.persona))
-        )
+            static_items = frozenset(spec["items"].keys())
+            static_energy_decay = world.energy_decay
+            system_parts = (
+                rules,
+                spec["briefing"],
+                format_map(spec),
+                format_static_catalog(spec, world.energy_decay),
+                group["brief"],
+                identity_block(person, self.persona),
+            )
+        else:
+            system_parts = (
+                rules,
+                spec["briefing"],
+                format_map(spec),
+                group["brief"],
+                identity_block(person, self.persona),
+            )
+        system_prompt = "\n".join(system_parts)
+        # Hysteresis batch folding: once byte_budget forces a history fold (paying the KV
+        # cache reset cost once), fold down to fold_target * byte_budget (keeping at least
+        # `keep` recent turns when they fit) so the next several ticks stay strictly append-only.
+        folding_history = False
+        target_bytes = int(byte_budget * fold_target)
         while True:
             # A full system message stays hot across residents with the same archetype
             # and across compression. Place the changing digest in the first user turn.
             identity = {"id": self.actor, "older_observations": digest}
             messages = [message("system", system_prompt)]
-            for turn in history:
-                if mode == "agent_loop":
-                    user_text = encode(compact_frame_for_loop(json.loads(turn["frame"])))
+            if mode == "agent_loop":
+                seen_docs = set()
+                prev_frame = None
+                for turn, raw_frame in zip(history, parsed_history):
+                    user_text = encode(
+                        compact_frame_for_loop(
+                            raw_frame,
+                            static_items=static_items,
+                            static_energy_decay=static_energy_decay,
+                            prev_frame=prev_frame,
+                            seen_docs=seen_docs,
+                        )
+                    )
                     messages.append(message("user", user_text))
                     messages.extend(render_tool_history(turn["tick"], turn["reply"]))
-                else:
+                    prev_frame = raw_frame
+                current_frame = compact_frame_for_loop(
+                    frame,
+                    static_items=static_items,
+                    static_energy_decay=static_energy_decay,
+                    prev_frame=prev_frame,
+                    seen_docs=seen_docs,
+                )
+                messages.append(message("user", encode(current_frame)))
+            else:
+                for turn in history:
                     messages.append(message("user", turn["frame"]))
                     messages.append(message("assistant", turn["reply"]))
-            current_frame = compact_frame_for_loop(frame) if mode == "agent_loop" else frame
-            messages.append(message("user", encode(current_frame)))
+                messages.append(message("user", encode(frame)))
             messages[1]["content"] = encode(identity) + "\n" + messages[1]["content"]
-            if message_bytes(messages) <= byte_budget:
+            size = message_bytes(messages)
+            if size <= byte_budget and (
+                not folding_history or size <= target_bytes or len(history) <= keep
+            ):
                 local = {}
                 if mode == "agent_loop":
                     local = local_context(world, self.actor, meeting)
                     local["notes"] = state["notes"]
                 return Request(self.actor, messages, frame, cut, digest, cut != initial_cut, local)
             if history:
+                folding_history = True
                 fold(1)
                 frame["recall"] = store.recall(self.actor, view["near"], cut)
             elif frame["recall"]:

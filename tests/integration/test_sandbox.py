@@ -210,6 +210,69 @@ class SandboxRuntimeTest(unittest.TestCase):
                     store.db.rollback()
         self.assertEqual(store.replay()["verified_ticks"], 1)
 
+    def test_hysteresis_batch_fold_avoids_per_tick_thrashing(self):
+        store = self.open_store(8)
+        sim = Simulation(store, Scripted(), window=0, keep=2, context_bytes=180000)
+        for _ in range(8):
+            sim.step()
+        agent = sim.agents[0]
+        full = agent.prepare(store, store.world(), 0, 2, 180000, mode="agent_loop")
+        from herd.runtime.memory import message_bytes
+
+        full_bytes = message_bytes(full.messages)
+        # Budget just below the full 8-turn prompt triggers batch folding down to watermark / keep.
+        budget = full_bytes - 200
+        folded = agent.prepare(store, store.world(), 0, 2, budget, mode="agent_loop")
+        self.assertTrue(folded.compressed)
+        folded_bytes = message_bytes(folded.messages)
+        self.assertLessEqual(folded_bytes, budget)
+        # Batch folding should fold more than 1 turn so subsequent ticks have append-only headroom.
+        self.assertGreater(folded.cut, 0)
+        self.assertLess(folded_bytes, budget - 800)
+
+        # Commit this folded turn and advance one tick; next turn must NOT re-compress and must stay append-only.
+        sim2 = Simulation(store, Scripted(), window=0, keep=2, context_bytes=budget)
+        sim2.step()
+        next_req = agent.prepare(store, store.world(), 0, 2, budget, mode="agent_loop")
+        self.assertFalse(next_req.compressed)
+        self.assertEqual(next_req.cut, store.mind(agent.actor)["cut"])
+
+    def test_mru_prefix_queue_reuses_most_recent_continuations_first(self):
+        # r000 has a longer prefix than r001, but r001 finished more recently (last in anchors).
+        anchors = [b"sys|r000|long_history_0000000000", b"sys|r001|short"]
+        items = [
+            (b"sys|r000|long_history_0000000000|turn2", Request("r000", [], {}, -1, [], False)),
+            (b"sys|r001|short|turn2", Request("r001", [], {}, -1, [], False)),
+            (b"sys|r002|cold", Request("r002", [], {}, -1, [], False)),
+        ]
+        queue = PrefixQueue(items, anchors, mru=True)
+        order = [queue.pop()[0].actor for _ in range(3)]
+        self.assertEqual(order, ["r001", "r000", "r002"])
+
+    def test_compact_loop_frame_preserves_prefix_and_omits_redundant_fields(self):
+        store = self.open_store(8)
+        sim = Simulation(store, Scripted(), window=0, keep=2, context_bytes=180000)
+        agent = sim.agents[0]
+        req0 = agent.prepare(store, store.world(), 0, 2, 180000, mode="agent_loop")
+        sys_text = req0.messages[0]["content"]
+        self.assertIn("force_modes=", sys_text)
+        self.assertIn("item_catalog=", sys_text)
+        first_user_payload = json.loads(req0.messages[1]["content"].split("\n", 1)[1])
+        self.assertNotIn("force_modes", first_user_payload["view"])
+        self.assertNotIn("item_info", first_user_payload["view"])
+        for peer in first_user_payload["view"].get("near", []):
+            self.assertFalse(any(v is False or v == [] for v in peer.values()))
+        sim.step()
+        req1 = agent.prepare(store, store.world(), 0, 2, 180000, mode="agent_loop")
+        # Append-only prefix invariance must hold byte-for-byte in agent_loop mode too.
+        self.assertTrue(message_key(req1.messages).startswith(message_key(req0.messages)))
+        second_user_payload = json.loads(req1.messages[-1]["content"])
+        # Unchanged contacts/notes are omitted on subsequent frames.
+        if req1.frame["view"]["contacts"] == req0.frame["view"]["contacts"]:
+            self.assertNotIn("contacts", second_user_payload["view"])
+        if req1.frame["notes"] == req0.frame["notes"]:
+            self.assertNotIn("notes", second_user_payload)
+
 
 class JsonIntentProtocolTests(PolityCase):
     def test_resident_prompt_uses_the_protocol_of_its_backend(self):

@@ -30,13 +30,26 @@ def common_prefix(left, right):
 
 
 class PrefixQueue:
-    def __init__(self, keyed_requests, anchors):
+    def __init__(self, keyed_requests, anchors, *, mru=False):
         self.requests = {req.actor: req for _, req in keyed_requests}
         self.keys = sorted((key, req.actor) for key, req in keyed_requests)
         self.anchors = anchors
+        self.mru = mru
 
     def pop(self):
-        # A longest prefix in a sorted set must occur at a predecessor or successor.
+        if self.mru:
+            # Prefer exact prefix continuations of the most recently completed residents
+            # so hot KV entries are reused before an LRU server cache can evict them.
+            for anchor in reversed(self.anchors):
+                if not anchor:
+                    continue
+                pos = bisect_left(self.keys, (anchor, ""))
+                if pos < len(self.keys):
+                    candidate = self.keys[pos][0]
+                    if len(candidate) >= len(anchor) and candidate[: len(anchor)] == anchor:
+                        key, actor = self.keys.pop(pos)
+                        return self.requests.pop(actor), key, len(anchor)
+        # Fallback (and default): longest shared prefix in the sorted set occurs at a predecessor or successor.
         best_index, best_len = 0, 0
         for anchor in reversed(self.anchors):
             pos = bisect_left(self.keys, (anchor, ""))

@@ -23,6 +23,7 @@ class ChatAPI(ChatTransport, Backend):
         api_key_env="HERD_API_KEY",
         api_key=None,
         workers=None,
+        context_bytes=None,
         name="api",
         mode="agent_loop",
         max_steps=6,
@@ -46,7 +47,9 @@ class ChatAPI(ChatTransport, Backend):
         _positive_int(max_tokens, "max_tokens")
         if workers is not None:
             _positive_int(workers, "workers")
-        self.name, self.workers = name, workers
+        if context_bytes is not None:
+            _positive_int(context_bytes, "context_bytes")
+        self.name, self.workers, self.context_bytes = name, workers, context_bytes
         if mode not in ("agent_loop", "json"):
             raise ValueError("API mode must be agent_loop or json")
         _positive_int(max_steps, "max_steps")

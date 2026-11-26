@@ -1,7 +1,7 @@
 """Stage concurrent inference independently per backend, then commit one world transition."""
 
 from collections import defaultdict, deque
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from .agent import Agent
 from .backends import RoutedBackend
@@ -45,13 +45,19 @@ class Simulation:
         workers = backend.workers or self.workers
         staged = 0
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            queue = PrefixQueue(list(zip(pool.map(backend.key, requests), requests)), anchors)
-            while queue.keys:
-                size = min(workers if anchors else 1, len(queue.keys))
-                batch = [queue.pop() for _ in range(size)]
-                futures = [pool.submit(self.decision, req) for req, _, _ in batch]
-                errors = []
-                for (req, key, length), future in zip(batch, futures):
+            queue = PrefixQueue(list(zip(pool.map(backend.key, requests), requests)), anchors, mru=True)
+            in_flight = {}
+            errors = []
+            while queue.keys or in_flight:
+                limit = workers if anchors else 1
+                while queue.keys and not errors and len(in_flight) < limit:
+                    req, key, length = queue.pop()
+                    in_flight[pool.submit(self.decision, req)] = (req, key, length)
+                if not in_flight:
+                    break
+                done, _ = wait(in_flight, return_when=FIRST_COMPLETED)
+                for future in done:
+                    req, key, length = in_flight.pop(future)
                     try:
                         reply, metrics = future.result()
                     except Exception as exc:
@@ -61,8 +67,8 @@ class Simulation:
                     if self.store.stage(tick, req, reply, metrics, backend.scope, key, anchors.maxlen):
                         staged += 1
                         anchors.append(key)
-                if errors:
-                    raise errors[0]
+            if errors:
+                raise errors[0]
         return staged
 
     def step(self, decision_budget=None):
@@ -83,7 +89,7 @@ class Simulation:
                     world,
                     self.window,
                     self.keep,
-                    self.context_bytes,
+                    backend.context_bytes or self.context_bytes,
                     index,
                     mode=backend.mode,
                 )

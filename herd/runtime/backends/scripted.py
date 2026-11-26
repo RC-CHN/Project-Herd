@@ -10,14 +10,17 @@ class Scripted(Backend):
     model = "scripted"
     mode = "scripted"
 
-    def __init__(self, name="scripted", workers=None, *, max_steps=6):
+    def __init__(self, name="scripted", workers=None, *, max_steps=6, context_bytes=None):
         _text(name, "profile name")
         _positive_int(max_steps, "max_steps")
         self.max_steps = max_steps
         if workers is not None:
             _positive_int(workers, "workers")
+        if context_bytes is not None:
+            _positive_int(context_bytes, "context_bytes")
         self.name = name
         self.workers = workers
+        self.context_bytes = context_bytes
         self.scope = (
             "scripted:message-framing-v1" if name == "scripted" else f"scripted:{name}:message-framing-v1"
         )

@@ -403,3 +403,30 @@ class BackendTests(unittest.TestCase):
             ChatAPI("http://localhost:8000/v1", "bad", temperature=3.0)
         with self.assertRaises(ValueError):
             ChatAPI("http://localhost:8000/v1", "bad", temperature=True)
+
+    def test_per_backend_context_bytes_validation_and_override(self):
+        config = {
+            "default": "small",
+            "profiles": {
+                "small": {"type": "scripted", "context_bytes": 12000},
+                "large": {
+                    "type": "api",
+                    "base_url": "http://localhost:8000/v1",
+                    "model": "long-ctx",
+                    "context_bytes": 280000,
+                },
+            },
+        }
+        router = load_backends(config)
+        self.assertEqual(router.profiles["small"].context_bytes, 12000)
+        self.assertEqual(router.profiles["large"].context_bytes, 280000)
+        for bad in (0, -100, False, "12000"):
+            with self.assertRaises(ValueError):
+                ChatAPI("http://localhost:8000/v1", "bad", context_bytes=bad)
+            with self.assertRaises(ValueError):
+                load_backends(
+                    {
+                        "default": "small",
+                        "profiles": {"small": {"type": "scripted", "context_bytes": bad}},
+                    }
+                )
