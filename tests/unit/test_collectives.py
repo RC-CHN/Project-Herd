@@ -243,8 +243,8 @@ class CollectivesTests(PolityCase):
         spec = load("bayport-crisis")
         w = World.create(spec, spec["default_residents"], 42)
         counts = Counter(p.role for p in w.people.values())
-        self.assertEqual(len(w.people), 57)
-        self.assertEqual(sum(p.size for p in w.people.values()), 680)
+        self.assertEqual(len(w.people), 60)
+        self.assertEqual(sum(p.size for p in w.people.values()), 667)
         self.assertEqual(
             counts,
             dict(
@@ -261,17 +261,22 @@ class CollectivesTests(PolityCase):
                 journalist=4,
                 liaison=2,
                 syndicate_agent=1,
+                labor_leader=2,
+                worker_picket=4,
                 student_bloc=8,
-                civic_crowd=14,
+                civic_crowd=11,
                 constabulary=6,
                 garrison_unit=4,
                 field_unit=2,
             ),
         )
+        # Foundry connects to south_ward with organized 4x15 worker pickets and 2 labor leaders.
+        self.assertEqual(spec["places"]["foundry"]["paths"], ["south_ward"])
+        self.assertIn("foundry", spec["places"]["south_ward"]["paths"])
         # Covert syndicate agent disguises public_tag while maintaining asymmetric cross-faction ties.
         agent = next(p for p in w.people.values() if p.role == "syndicate_agent")
         self.assertEqual(agent.tag, "外埠商客")
-        self.assertEqual(len(agent.relations), 4)
+        self.assertEqual(len(agent.relations), 5)
         for peer_id, rels in agent.relations.items():
             self.assertNotEqual(rels, w.people[peer_id].rels_for(agent.id))
         # Physical fiscal_ledger starts in hall without being spoiled in global briefing; inner_gate buffers hall.
@@ -310,10 +315,13 @@ class CollectivesTests(PolityCase):
         p_crowd = by_role("civic_crowd").combat_power(spec["items"], spec["rules"])
         p_student = by_role("student_bloc").combat_power(spec["items"], spec["rules"])
         p_constab = by_role("constabulary").combat_power(spec["items"], spec["rules"])
+        p_worker = by_role("worker_picket").combat_power(spec["items"], spec["rules"])
         p_praet = by_role("praetorian").combat_power(spec["items"], spec["rules"])
         p_garrison = by_role("garrison_unit").combat_power(spec["items"], spec["rules"])
         self.assertLess(p_crowd, p_student)
         self.assertLess(p_student, p_constab)
+        self.assertLess(p_constab, p_worker)
+        self.assertLess(p_worker, p_garrison)
         self.assertLess(p_constab, p_praet)
         self.assertLess(p_praet, p_garrison)
         self.assertGreater(2 * p_crowd, p_constab)
@@ -322,7 +330,7 @@ class CollectivesTests(PolityCase):
         self.assertEqual(spec["places"]["hall"]["paths"], ["inner_gate"])
 
         # Full multi-tick scripted simulation + replay audit passes cleanly.
-        store = self.store(spec, count=57)
+        store = self.store(spec, count=spec["default_residents"])
         sim = Simulation(store, Scripted(), window=0, keep=0)
         for _ in range(12):
             sim.step()
@@ -416,7 +424,7 @@ class CollectivesTests(PolityCase):
 
         # End-to-end Simulation + provenance whisper isolation audit with real scenario ties & remote calls!
         bay = load("bayport-crisis")
-        bay_store = self.store(bay, count=57, name="bayport")
+        bay_store = self.store(bay, count=bay["default_residents"], name="bayport")
         bw = bay_store.world()
         hardliner = next(p for p in bw.people.values() if p.role == "hardliner")
         chief = next(p for p in bw.people.values() if p.role == "garrison_chief")
@@ -518,7 +526,7 @@ class CollectivesTests(PolityCase):
 
     def test_multitag_directed_relations_merge_preserve_and_roundtrip(self):
         bay = load("bayport-crisis")
-        w = World.create(bay, 57, 42)
+        w = World.create(bay, bay["default_residents"], 42)
         conc = next(p for p in w.people.values() if p.role == "conciliator")
         hard = next(p for p in w.people.values() if p.role == "hardliner")
         elder = next(p for p in w.people.values() if p.role == "councilor")
@@ -561,7 +569,7 @@ class CollectivesTests(PolityCase):
         from herd.systems.gates import GateSystem
 
         bay = load("bayport-crisis")
-        store = self.store(bay, count=57, name="roe_test")
+        store = self.store(bay, count=bay["default_residents"], name="roe_test")
         w = store.world()
 
         # 1. Exact Pop scale invariance: 4 x size=25 crowds == 1 x size=100 crowd in team_strength.
@@ -693,7 +701,7 @@ class CollectivesTests(PolityCase):
         # Scenario-defined item weights: scrip is weightless (0), body_weight is 6.
         self.assertEqual(bay["items"]["scrip"]["weight"], 0)
         self.assertEqual(bay["rules"]["body_weight"], 6)
-        store = self.store(bay, count=57, name="bodies_test")
+        store = self.store(bay, count=bay["default_residents"], name="bodies_test")
         w = store.world()
 
         conc = next(p for p in w.people.values() if p.role == "conciliator")

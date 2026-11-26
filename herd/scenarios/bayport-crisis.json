@@ -6,8 +6,8 @@
     "preset": "maritime-1894"
   },
   "start_date": "1894-05-01",
-  "default_residents": 57,
-  "briefing": "这里是海澜联邦首府白湾城，正值工业时代转型期。资深宪政法官病逝后，学院青年与南埠市民涌向钟楼广场，要求公开市政财政账目与彻查司法积弊；这直接触及执政厅核心派系的切身利害与政治生死。内阁密室与广场之间隔着执政厅接见廊与执政厅内卫门，北岭营地驻有本地联邦驻防部队，城外三座驿站之外还驻扎着听命于元老系统的远郊铁卫营。钟楼广场没有补给设施，联邦印报馆掌有全城唯一的印刷复制设施，石桥大道是驻军进城的必经咽喉；联邦票券（scrip）是乱世保命与事后变现的硬筹码。",
+  "default_residents": 60,
+  "briefing": "这里是海澜联邦首府白湾城，正值工业时代转型期。资深宪政法官病逝后，学院青年与南埠市民涌向钟楼广场，要求公开市政财政账目与彻查司法积弊；这直接触及执政厅核心派系的切身利害与政治生死。内阁密室与广场之间隔着执政厅接见廊与执政厅内卫门，南埠街区外侧连着工团云集的南埠工场区，北岭营地驻有本地联邦驻防部队，城外三座驿站之外还驻扎着听命于元老系统的远郊铁卫营。钟楼广场没有补给设施，联邦印报馆掌有全城唯一的印刷复制设施，石桥大道是驻军进城的必经咽喉；联邦票券（scrip）是乱世保命与事后变现的硬筹码。",
   "rules": {
     "contact_size": 8,
     "board_slots": 8,
@@ -242,7 +242,8 @@
       ],
       "paths": [
         "plaza",
-        "bridgeway"
+        "bridgeway",
+        "foundry"
       ],
       "defense": 0,
       "comms": true,
@@ -260,6 +261,34 @@
       },
       "initial_items": {
         "supply_box": 36
+      }
+    },
+    "foundry": {
+      "label": "南埠工场区",
+      "pos": [
+        0.88,
+        0.18
+      ],
+      "paths": [
+        "south_ward"
+      ],
+      "defense": 0.2,
+      "comms": true,
+      "sustenance": true,
+      "facility": {
+        "kind": "harvest",
+        "item": "supply_box",
+        "yield_per_action": 2
+      },
+      "regen": {
+        "supply_box": {
+          "rate": 10,
+          "cap": 30
+        }
+      },
+      "initial_items": {
+        "supply_box": 24,
+        "baton": 4
       }
     },
     "bridgeway": {
@@ -828,6 +857,61 @@
           "weight": 2
         }
       ]
+    },
+    "labor_leader": {
+      "label": "工场工团领袖",
+      "public_tag": "工团领袖",
+      "exact_count": 2,
+      "size": 1,
+      "discipline": 1.0,
+      "home": "foundry",
+      "brief": "你是南埠工场区（foundry）的工团领袖，掌管多支有组织纪律的工场纠察纵队（worker_picket），与南埠街区干事、部分学院代表及内阁旧识均有往来。工场区备有有线通讯、食堂与补给仓库；你随身带有便携电台与联邦票券，代表成百上千工人的饭碗、工钱与城中实打实的经济筹码。",
+      "initial_energy": 12,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 2,
+        "field_radio": 1,
+        "scrip": 4
+      },
+      "archetypes": [
+        {
+          "text": "在船坞工场干了二十年的老工头，务实精明、极护工友性命与饭碗。你痛恨执政厅与元老院贪墨税款，但更清楚空泛口号当不了饭吃、血肉挡不住步枪；倾向以工团实力与粮道筹码迫使上层签下切实可兑现的书面让步，绝不让弟兄白白沦为政客或学生的炮灰。",
+          "weight": 1
+        },
+        {
+          "text": "脾气硬朗、立场激进的工团委员，笃信官府与权贵只认硬筹码不认求情。你认为只要工场停工、纠察队锁住要道与粮仓，执政厅就撑不过几天；极度鄙夷轻信官府空头承诺的妥协派，决心趁乱彻底砸碎旧元老体系对港口与税赋的垄断。",
+          "weight": 1
+        }
+      ]
+    },
+    "worker_picket": {
+      "label": "工场纠察纵队",
+      "public_tag": "工人纠察队",
+      "exact_count": 4,
+      "size": 15,
+      "discipline": 0.72,
+      "home": {
+        "foundry": 3,
+        "south_ward": 1
+      },
+      "brief": "你们是十五名船坞与机械厂工人组成的工场纠察纵队（size=15，组织纪律较高，持非致命巡防木棍/铁管 baton，无实弹武器），联署计入 15 份权重，在有通讯据点可与工团领袖协同联络，默认交战规则为非致命推挤（roe=push）。你们齐心护厂护街，遇普通推挤不易溃散，但也清楚面对制式步枪实弹的致命风险。",
+      "initial_energy": 10,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 4,
+        "baton": 1,
+        "scrip": 2
+      },
+      "archetypes": [
+        {
+          "text": "常年在码头与锻炉旁共事的产业工人，讲义气、听工团领袖号令、列队严整；面对官差推搡敢于硬顶护住街坊与粮仓，但绝不盲目拿肉身去撞实弹步枪。",
+          "weight": 2
+        },
+        {
+          "text": "火气旺、受够欠薪与盘剥的年轻机械工，看不起官僚与只会喊口号的书生；一旦工团下令封路、护场或声援广场，行动果断雷厉风行，但也认清硬茬枪口不敢白白送命。",
+          "weight": 2
+        }
+      ]
     }
   },
   "ties": [
@@ -1218,6 +1302,54 @@
       "mode": "all",
       "rel": "palace_guard",
       "reverse_rel": "inner_gate_guard"
+    },
+    {
+      "from_group": "labor_leader",
+      "to_group": "labor_leader",
+      "mode": "all",
+      "rel": "union_colleague"
+    },
+    {
+      "from_group": "labor_leader",
+      "to_group": "worker_picket",
+      "mode": "partition",
+      "rel": "picket_unit",
+      "reverse_rel": "union_leader"
+    },
+    {
+      "from_group": "worker_picket",
+      "to_group": "worker_picket",
+      "mode": "ring",
+      "degree": 2,
+      "rel": "fellow_worker"
+    },
+    {
+      "from_group": "labor_leader",
+      "to_group": "liaison",
+      "mode": "all",
+      "rel": "district_partner"
+    },
+    {
+      "from_group": "labor_leader",
+      "to_group": "organizer",
+      "mode": "random_k",
+      "k": 2,
+      "rel": "movement_contact"
+    },
+    {
+      "from_group": "labor_leader",
+      "to_group": "conciliator",
+      "mode": "random_k",
+      "k": 1,
+      "rel": "former_contact"
+    },
+    {
+      "from_group": "syndicate_agent",
+      "to_group": "labor_leader",
+      "mode": "random_k",
+      "k": 1,
+      "rel": "union_asset",
+      "reverse_rel": "foreign_buyer"
     }
   ],
   "shocks": [
@@ -1285,6 +1417,8 @@
       "field_unit",
       "student_bloc",
       "civic_crowd",
+      "labor_leader",
+      "worker_picket",
       "syndicate_agent"
     ],
     "focal_places": [
@@ -1293,6 +1427,7 @@
       "plaza",
       "bridgeway",
       "press_hall",
+      "foundry",
       "north_camp",
       "outer_garrison"
     ],
