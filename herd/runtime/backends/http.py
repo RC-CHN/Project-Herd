@@ -46,14 +46,19 @@ class ChatTransport:
         if self.secret:
             headers["Authorization"] = "Bearer " + self.secret
         payload = encode(body).encode()
-        for attempt in range(4):
+        max_attempts = 6
+        for attempt in range(max_attempts):
             request = HttpRequest(url, data=payload, headers=headers)
             try:
                 with build_opener(NoRedirect).open(request, timeout=240) as response:
                     return json.load(response)
             except HTTPError as exc:
-                if exc.code in TRANSIENT_HTTP and attempt < 3:
-                    time.sleep(2 * (2**attempt))
+                if exc.code in TRANSIENT_HTTP and attempt < max_attempts - 1:
+                    delay = min(60.0, float(2 * (2**attempt)))
+                    retry_after = exc.headers.get("Retry-After") if exc.headers else None
+                    if retry_after and retry_after.strip().isdigit():
+                        delay = min(60.0, max(delay, float(retry_after.strip())))
+                    time.sleep(delay)
                     continue
                 raise RuntimeError(f"{urlsplit(url).path} returned HTTP {exc.code}") from exc
             except (URLError, TimeoutError) as exc:
