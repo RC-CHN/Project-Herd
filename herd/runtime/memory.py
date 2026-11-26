@@ -135,6 +135,8 @@ def _action_tool_call(intent):
     if action == "move":
         return "move", {"place": intent.target}
     if action == "guard":
+        if intent.target == "none":
+            return "drop_guard", {}
         return "guard", {"target": intent.target, "allow_pass": intent.detail or "none"}
     if action == "force":
         return "force", {"target": intent.target}

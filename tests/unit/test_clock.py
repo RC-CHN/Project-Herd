@@ -294,12 +294,12 @@ class ClockTests(unittest.TestCase):
         self.assertTrue(b.is_exhausted)
         self.assertEqual(w.places["annex"].items["ration"], 2)
 
-        # Tick 2: c stops guarding -> b (exhausted & full carry_cap!) eats directly from room in 1 turn!
+        # Tick 2: c explicitly drops guard -> b (exhausted & full carry_cap!) eats directly from room in 1 turn!
         # Also test AgentToolbox accepts eat() for room floor food without carrying it.
         vb = w.observe(b.id)
         box = AgentToolbox(Request(b.id, [], {"view": vb, "events": [], "notes": {}}, -1, [], False), None)
         self.assertTrue(box.call("eat", {"item": "ration"})["ok"])
-        ev_ok = turn(w, {b.id: Intent("eat", item="ration")})
+        ev_ok = turn(w, {c.id: Intent("guard", "none"), b.id: Intent("eat", item="ration")})
         self.assertFalse(b.is_exhausted)
         self.assertEqual(w.places["annex"].items["ration"], 1)
         self.assertTrue(any(e[0] == b.id and e[2] == "result" and "from room" in e[4] for e in ev_ok))

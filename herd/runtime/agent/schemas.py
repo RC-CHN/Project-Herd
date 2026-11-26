@@ -98,10 +98,16 @@ ACTION_SCHEMAS = [
         "Guard path:<adjacent place> (blocks outsiders entering from that neighbor without trapping insiders), "
         "path:* (locks down all exits bidirectionally AND protects floor items), "
         "items (protects floor items/docs in this room from unauthorized take), or person:<local id>. "
+        "Guard posture is persistent across turns while you stay in place (wait/eat/take/give/write/endorse/offer/accept "
+        "all keep guarding); it ends only when you call drop_guard, move, force, lose combat, or become exhausted. "
         "allow_pass is required: pass 'none' to admit only yourself, or join allow:id,id, "
         "seal:item, and known (your contacts) with semicolons to admit anyone matching at least one clause.",
         {"target": ID, "allow_pass": TEXT},
         ["target", "allow_pass"],
+    ),
+    tool(
+        "drop_guard",
+        "主动撤除你当前持续中的值守岗位（own_posture）并留在原地，可配合 stage_speech 告知众人已撤岗放行。",
     ),
     tool(
         "force",

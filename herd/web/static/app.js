@@ -271,6 +271,7 @@ function describeAction(actorId, dec, tk) {
   if (act === "offer") return roeNote + `发出本地邀约（出 ${qty} ${itemLabel(it, tk)}，索 ${tgt}）`;
   if (act === "accept") return roeNote + `接受了本地邀约 ${tgt}`;
   if (act === "guard") {
+    if (tgt === "none") return roeNote + "主动撤除了值守岗位";
     const scope = tgt === "path:*" ? "全屋出入口与地面物品" : tgt === "items" ? "屋内地面物品" : tgt.startsWith("path:") ? `通往「${placeLabel(tgt.slice(5))}」的通道` : tgt.startsWith("person:") ? `${roleInfo(tgt.slice(7)).display} 身侧` : tgt;
     return roeNote + `把守${scope}`;
   }
@@ -280,7 +281,7 @@ function describeAction(actorId, dec, tk) {
 
 function isSpecialItem(it, tk) {
   const m = itemMeta(it, tk);
-  return m.kind === "seal" || m.kind === "remains";
+  return m.kind === "seal" || m.kind === "remains" || Boolean(m.unique);
 }
 
 function buildScenes(tk) {

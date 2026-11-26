@@ -28,6 +28,7 @@ ACTIONS = {
         action.give,
         action.move,
         action.guard,
+        action.drop_guard,
         action.force,
         action.write_document,
         action.post_document,

@@ -108,6 +108,12 @@ def guard(box, target, allow_pass=""):
     return {"action": "guard", "target": target, "detail": allow_pass}
 
 
+def drop_guard(box):
+    if not box.view.get("own_posture"):
+        raise ValueError("you are not currently holding a guard posture")
+    return {"action": "guard", "target": "none"}
+
+
 def force(box, target):
     _require_not_exhausted(box)
     check_target(box, target, guarding=False)

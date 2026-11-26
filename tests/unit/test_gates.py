@@ -85,7 +85,8 @@ class GatesTests(PolityCase):
         turn(w, {"r000": Intent("guard", "path:annex", detail="none")})
         self.assertTrue(w.observe("r001")["guards"]["paths"]["atrium"]["blocked_for_self"])
         self.assertFalse(w.observe("r002")["guards"]["paths"]["annex"]["blocked_for_self"])
-        self.assertEqual(w.observe("r002")["guards"]["paths"]["annex"]["count"], 1)
+        self.assertEqual(w.observe("r002")["guards"]["paths"]["annex"]["count"], 0)
+        self.assertEqual(w.observe("r002")["guards"]["paths"]["annex"]["inbound_size"], 1)
         turn(
             w,
             {
@@ -153,3 +154,45 @@ class GatesTests(PolityCase):
         self.assertIsNone(w4.people["r000"].posture)
         self.assertTrue(any(e[0] == "r000" and e[2] == "notice" and "护卫解除" in e[4] and "r001(" in e[4] for e in ev4))
         self.assertTrue(any(e[0] == "r002" and e[2] == "result" and "whisper to r003 failed" in e[4] for e in ev4))
+
+    def test_persistent_guard_survives_in_place_actions_and_drops_on_drop_guard_move_or_force(self):
+        from herd.runtime.agent.toolbox import AgentToolbox
+        from herd.runtime.memory import Request, render_tool_history
+
+        w = world()
+        w.people["r001"].place = "annex"
+        # 1. Set guard on T0; on T1 r000 eats in place and guard stays active, still blocking r001!
+        turn(w, {"r000": Intent("guard", "path:annex", detail="none")})
+        self.assertIsNotNone(w.people["r000"].posture)
+        turn(w, {"r000": Intent("eat"), "r001": Intent("move", "atrium")})
+        self.assertIsNotNone(w.people["r000"].posture)
+        self.assertEqual(w.people["r001"].place, "annex")
+
+        # 2. AgentToolbox drop_guard tool maps to canonical guard(target='none') and renders back as drop_guard.
+        req = Request("r000", [], {"view": w.observe("r000"), "events": [], "notes": {}}, -1, [], False)
+        box = AgentToolbox(req, store=None)
+        res = box.call("drop_guard", {})
+        self.assertTrue(res["ok"], res)
+        self.assertEqual((box.intent.action, box.intent.target), ("guard", "none"))
+        hist = render_tool_history(2, '{"action":"guard","target":"none"}')
+        self.assertEqual(hist[0]["tool_calls"][0]["function"]["name"], "drop_guard")
+
+        # 3. Applying drop_guard clears posture and lets r001 enter.
+        ev = turn(w, {"r000": box.intent, "r001": Intent("move", "atrium")})
+        self.assertIsNone(w.people["r000"].posture)
+        self.assertIn(("r000", 2, "result", "r000", "dropped guard"), ev)
+        self.assertEqual(w.people["r001"].place, "atrium")
+
+        # 4. Calling drop_guard when not guarding fails cleanly in toolbox.
+        req_idle = Request("r000", [], {"view": w.observe("r000"), "events": [], "notes": {}}, -1, [], False)
+        self.assertFalse(AgentToolbox(req_idle, store=None).call("drop_guard", {})["ok"])
+
+        # 5. Moving or forcing automatically drops persistent guard.
+        turn(w, {"r000": Intent("guard", "items", detail="none")})
+        self.assertIsNotNone(w.people["r000"].posture)
+        turn(w, {"r000": Intent("move", "annex")})
+        self.assertIsNone(w.people["r000"].posture)
+        turn(w, {"r000": Intent("guard", "items", detail="none")})
+        self.assertIsNotNone(w.people["r000"].posture)
+        turn(w, {"r000": Intent("force", "path:atrium")})
+        self.assertIsNone(w.people["r000"].posture)

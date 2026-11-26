@@ -29,8 +29,9 @@ class CombatTests(PolityCase):
         self.assertGreaterEqual(fight["damage"][a], 4)
         self.assertIn(b, w.active_residents())
         trace.clear()
+        desert = {g: Intent("guard", "none") for g in moves}
         events = turn(
-            w, {a: Intent("force", "person:" + b), b: Intent("give", "r005", item="badge")}, trace
+            w, {**desert, a: Intent("force", "person:" + b), b: Intent("give", "r005", item="badge")}, trace
         )
         self.assertIn((b, 1, "death", b, "combat"), events)
         self.assertNotIn(b, w.active_residents())

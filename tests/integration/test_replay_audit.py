@@ -338,8 +338,12 @@ class ReplayAuditTests(PolityCase):
 
     def test_house_arrest_emerges_from_path_star_guard(self):
         def decide(a, v):
-            if a in ("r001", "r002", "r003") and v["tick"] < 2:
-                return dict(action="guard", target="path:*")
+            if a in ("r001", "r002", "r003"):
+                if v["tick"] == 0:
+                    return dict(action="guard", target="path:*")
+                if v["tick"] == 2:
+                    return dict(action="guard", target="none")
+                return dict(action="wait")
             if a == "r000":
                 return [
                     dict(action="move", target="annex"),

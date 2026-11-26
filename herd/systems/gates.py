@@ -163,28 +163,50 @@ class GateSystem:
         for actor in ctx.order:
             person = self.world.people[actor]
             intent = ctx.intents.get(actor)
-            posture = None
             if intent and intent.action == "guard":
+                if intent.target == "none":
+                    if person.posture:
+                        ctx.drop_guard(person)
+                        ctx.result(actor, "dropped guard")
+                    else:
+                        ctx.result(actor, "not guarding")
+                    continue
                 if ctx.is_exhausted(actor):
                     ctx.result(actor, EXHAUSTED_FAILURE)
-                else:
-                    posture = GuardPosture.try_parse(
-                        intent.target,
-                        intent.detail,
-                        valid_actors=self.world.people.keys(),
-                        items=ctx.items,
-                        paths=self.world.places[person.place].paths,
-                        present=present[person.place],
-                    )
-                    ctx.result(
-                        actor,
-                        f"guarding {posture.scope}" if posture else "failed: invalid guard target or pass",
-                    )
-            if person.posture and (not posture or person.posture.scope != posture.scope):
-                ctx.drop_guard(person)
-            person.posture = posture
-            if posture and ctx.trace is not None:
-                ctx.record("guard", actor=actor, place=person.place, **posture.to_dict(), active=True)
+                    ctx.drop_guard(person)
+                    continue
+                posture = GuardPosture.try_parse(
+                    intent.target,
+                    intent.detail,
+                    valid_actors=self.world.people.keys(),
+                    items=ctx.items,
+                    paths=self.world.places[person.place].paths,
+                    present=present[person.place],
+                )
+                ctx.result(
+                    actor,
+                    f"guarding {posture.scope}" if posture else "failed: invalid guard target or pass",
+                )
+                if posture:
+                    if person.posture and person.posture.scope != posture.scope:
+                        ctx.drop_guard(person)
+                    person.posture = posture
+                    if ctx.trace is not None:
+                        ctx.record("guard", actor=actor, place=person.place, **posture.to_dict(), active=True)
+            elif person.posture:
+                if ctx.is_exhausted(actor) or (intent and intent.action in ("move", "force")):
+                    ctx.drop_guard(person)
+                elif person.posture.scope_kind == "person":
+                    peer = self.world.people[person.posture.scope_target]
+                    if not peer.is_alive or peer.place != person.place:
+                        ctx.drop_guard(person)
+                        reason = "已退场" if not peer.is_alive else "已离开本屋"
+                        ctx.event(
+                            actor,
+                            "notice",
+                            "world",
+                            f"【护卫解除】你护卫的 {peer.id}({peer.tag}) {reason}，贴身护卫已自动解除。",
+                        )
         self._index_postures()
 
     def move(self, ctx, actor, target, blocked):
@@ -206,6 +228,8 @@ class GateSystem:
                     f"【拦阻记录】你在 {source}→{target} 通道拦住了 {who}（未满足你的放行条件：{allow}）。",
                 )
             return
+        if person.posture:
+            ctx.drop_guard(person)
         person.place = target
         if (cost := ctx.rules.get("exertion_energy_cost", 0)) and (
             person.carry_weight(ctx.items) > person.carry_cap(ctx.rules["carry_cap"]) // 2

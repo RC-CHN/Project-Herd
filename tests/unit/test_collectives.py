@@ -778,7 +778,7 @@ class CollectivesTests(PolityCase):
         box = AgentToolbox(req, store)
         self.assertEqual(box.call("take", {"item": body_id}), {"ok": True, "result": {"submitted": "take"}})
 
-        turn(w, {praet.id: Intent("take", item=body_id)})
+        turn(w, {hard.id: Intent("guard", "none"), praet.id: Intent("take", item=body_id)})
         self.assertEqual(praet.inv.get(body_id), 1)
         self.assertEqual(w.places["hall"].items.get(body_id, 0), 0)
         self.assertEqual(w.observe(praet.id)["carry_weight"], 4 + 6)
