@@ -93,10 +93,71 @@ def with_budget(result, remaining):
     return enriched
 
 
+COMM_MAX_STEPS = 3
+COMM_TOOLS = frozenset({"stage_speech", "stage_whisper", "write_note", "delete_note"})
+COMM_PHASE_ERROR = (
+    "现在是商议阶段：只能发言（stage_speech）、私语（stage_whisper）、写/删笔记或查阅信息；"
+    "世界行动与 set_roe 请在随后收到 phase=action 消息时再提交。"
+    "本阶段若无话可说，直接回复\"无\"或调用 wait 即可保持沉默。"
+)
+COMM_SILENCE = "本阶段保持沉默；世界行动请在随后的行动阶段提交。"
+
+
+def duplicate_whisper_error(remaining):
+    return with_budget(
+        {
+            "ok": False,
+            "error": (
+                "at most one stage_whisper per turn (up to 4 targets in a single call); "
+                "merge recipients into one stage_whisper or save others for next turn"
+            ),
+        },
+        remaining,
+    )
+
+
 class AgentLoop:
     def __init__(self, backend, store):
         self.backend = backend
         self.store = store
+
+    def run_comm(self, request):
+        """Opening deliberation: speech, whispers, notes and queries only; never a world action."""
+        box = AgentToolbox(request, self.store)
+        messages = list(request.messages)
+        metrics = dict(turn_metrics(self.backend), phase="comm")
+        limit = min(self.backend.max_steps, COMM_MAX_STEPS)
+        for step in range(1, limit + 1):
+            remaining = limit - step
+            assistant, usage = self.backend.chat(list(messages), tools=TOOL_SCHEMAS)
+            add_usage(metrics, usage)
+            metrics["loop_steps"] = step
+            assistant, calls = tool_message(
+                assistant, step, preserve_reasoning=getattr(self.backend, "preserve_reasoning", False)
+            )
+            messages.append(assistant)
+            if not calls:
+                break
+            names = [call["function"]["name"] for call in calls]
+            if names.count("stage_whisper") > 1 and remaining > 0:
+                error = encode(duplicate_whisper_error(remaining))
+                messages.extend({"role": "tool", "tool_call_id": c["id"], "content": error} for c in calls)
+                continue
+            spoke = False
+            for call, name in zip(calls, names):
+                if name == "wait":
+                    result = {"ok": True, "result": COMM_SILENCE}
+                elif name in ACTIONS or name == "set_roe":
+                    metrics["phase_errors"] = metrics.get("phase_errors", 0) + 1
+                    result = with_budget({"ok": False, "error": COMM_PHASE_ERROR}, remaining)
+                else:
+                    result = with_budget(box.call(name, call["function"]["arguments"]), remaining)
+                    spoke = spoke or (name in COMM_TOOLS and result.get("ok"))
+                messages.append({"role": "tool", "tool_call_id": call["id"], "content": encode(result)})
+            if spoke or all(name == "wait" for name in names):
+                break
+        metrics.update(note_ops=box.note_ops, tool_calls=box.tool_calls)
+        return canonical_reply(box.parse_intent({"action": "wait"})), box.note_ops, metrics
 
     def run_turn(self, request):
         box = AgentToolbox(request, self.store)
@@ -128,16 +189,7 @@ class AgentLoop:
                 continue
             whisper_indices = [i for i, call in enumerate(calls) if call["function"]["name"] == "stage_whisper"]
             if len(whisper_indices) > 1 and remaining > 0:
-                error = with_budget(
-                    {
-                        "ok": False,
-                        "error": (
-                            "at most one stage_whisper per turn (up to 4 targets in a single call); "
-                            "merge recipients into one stage_whisper or save others for next turn"
-                        ),
-                    },
-                    remaining,
-                )
+                error = duplicate_whisper_error(remaining)
                 for call in calls:
                     messages.append({"role": "tool", "tool_call_id": call["id"], "content": encode(error)})
                 continue
@@ -168,6 +220,13 @@ class Agent:
         self.loop = AgentLoop(backend, store) if backend.mode == "agent_loop" else None
 
     def run_turn(self, request):
+        if getattr(request, "phase", "") == "comm":
+            if self.loop:
+                return self.loop.run_comm(request)
+            # Single-shot JSON adapters keep their legacy protocol: they speak during the action
+            # phase (heard next tick) and simply stay silent in the opening deliberation.
+            metrics = dict(turn_metrics(self.backend), phase="comm", skipped=True, note_ops=[])
+            return canonical_reply(Intent("wait")), [], metrics
         if self.loop:
             return self.loop.run_turn(request)
         metrics = turn_metrics(self.backend)

@@ -4,6 +4,7 @@ import json
 
 from ...model import Intent, World
 from .notes import apply_note_ops, extra_note_events, note_ops_for
+from .schema import has_comm
 
 
 def same_json(left, right):
@@ -24,11 +25,29 @@ def replay(db):
         "SELECT 1 FROM events WHERE typeof(tick) != 'integer' OR tick<0 OR tick>=? LIMIT 1",
         (saved_tick,),
     ).fetchone()
+    comm = has_comm(db)
+    if comm:
+        outside_turns = outside_turns or db.execute(
+            "SELECT 1 FROM comm_turns WHERE typeof(tick) != 'integer' OR tick<0 OR tick>? LIMIT 1",
+            (saved_tick,),
+        ).fetchone()
+        outside_events = outside_events or db.execute(
+            """SELECT 1 FROM comm_events WHERE typeof(tick) != 'integer' OR tick<0 OR tick>?
+            OR tick NOT IN (SELECT tick FROM comm_ticks) LIMIT 1""",
+            (saved_tick,),
+        ).fetchone() or db.execute(
+            "SELECT 1 FROM comm_ticks WHERE typeof(tick) != 'integer' OR tick<0 OR tick>? LIMIT 1",
+            (saved_tick,),
+        ).fetchone()
     if outside_turns or outside_events:
         raise ValueError("records outside replay interval")
     world = World.create(archived["spec"], len(archived["people"]), archived["seed"])
     notes = {actor: {} for actor in world.people}
-    for tick in range(saved_tick):
+    for tick in range(saved_tick + 1):
+        if comm:
+            replay_comm(db, world, tick)
+        if tick == saved_tick:
+            break
         rows = db.execute(
             "SELECT actor,reply,metrics FROM turns WHERE tick=? ORDER BY actor", (tick,)
         ).fetchall()
@@ -53,3 +72,24 @@ def replay(db):
     if not same_json(notes, saved_notes):
         raise ValueError("private notes do not match replay")
     return {"verified_ticks": saved_tick, "residents": len(world.people)}
+
+
+def replay_comm(db, world, tick):
+    """Re-deliver one committed opening deliberation and compare its same-tick observations."""
+    if not db.execute("SELECT 1 FROM comm_ticks WHERE tick=?", (tick,)).fetchone():
+        if db.execute("SELECT 1 FROM turns WHERE tick=? LIMIT 1", (tick,)).fetchone() and world.spec[
+            "rules"
+        ].get("comm_rounds", 0):
+            raise ValueError(f"action decisions before the deliberation barrier at tick {tick}")
+        return []
+    rows = db.execute("SELECT actor,reply FROM comm_turns WHERE tick=? ORDER BY actor", (tick,)).fetchall()
+    intents = {actor: Intent.parse(reply, actor) for actor, reply in rows}
+    if set(intents) != set(world.active_residents()):
+        raise ValueError(f"missing or extra deliberation at tick {tick}")
+    events = world.settle_comm(intents)
+    recorded = db.execute(
+        "SELECT viewer,tick,kind,source,detail FROM comm_events WHERE tick=? ORDER BY id", (tick,)
+    )
+    if events != [tuple(row) for row in recorded]:
+        raise ValueError(f"deliberation mismatch at tick {tick}")
+    return events

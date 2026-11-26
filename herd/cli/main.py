@@ -24,6 +24,12 @@ def build_parser():
         help="bundled scenario ID or path to a scenario JSON file",
     )
     init.add_argument("--personas", type=Path, help="JSON mapping resident IDs to descriptions")
+    init.add_argument(
+        "--comm-rounds",
+        type=int,
+        choices=[0, 1],
+        help="override the scenario: 0 = single-phase ticks, 1 = deliberation then action within each tick",
+    )
     run = sub.add_parser("run")
     run.add_argument("--ticks", type=int, default=1)
     run.add_argument(
@@ -132,7 +138,11 @@ def execute(args, parser):
 
     if args.command == "init":
         personas = json.loads(args.personas.read_text()) if args.personas else None
-        store = Store.create(args.db, args.residents, args.seed, personas, args.scenario)
+        scenario = args.scenario
+        if args.comm_rounds is not None:
+            scenario = load(scenario)
+            scenario["rules"]["comm_rounds"] = args.comm_rounds
+        store = Store.create(args.db, args.residents, args.seed, personas, scenario)
     else:
         if not args.db.is_file():
             parser.error("database not found; run init first")

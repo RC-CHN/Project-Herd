@@ -352,3 +352,5 @@ button.active { background: var(--accent-soft); border-color: var(--accent); col
 
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 @keyframes dashFlow { to { stroke-dashoffset: -20; } }
+
+.phase-tag { display: inline-block; font-size: 10px; line-height: 1; padding: 2px 5px; margin-right: 6px; border-radius: 3px; background: var(--whisper); color: #fff; vertical-align: middle; opacity: 0.85; }

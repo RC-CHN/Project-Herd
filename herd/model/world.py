@@ -127,6 +127,11 @@ class World:
 
         return settle(self, intents, trace=trace)
 
+    def settle_comm(self, intents: dict[str, Intent], trace: list | None = None) -> list:
+        from ..systems import settle_comm
+
+        return settle_comm(self, intents, trace=trace)
+
     def statistics(self) -> dict:
         living = [p for p in self.people.values() if p.is_alive]
         return dict(

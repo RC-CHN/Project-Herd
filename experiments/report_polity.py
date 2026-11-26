@@ -2,13 +2,15 @@
 
 import argparse
 from contextlib import closing
+from dataclasses import replace
 import json
 from pathlib import Path
 import sqlite3
 from tempfile import NamedTemporaryFile
 
-from herd.model import World, ENGINE_POLITY, encode
+from herd.model import World, ENGINE_POLITY, Intent, encode
 from herd.runtime.storage.notes import extra_note_events
+from herd.runtime.storage.schema import has_comm
 from herd.runtime.storage.replay import same_json
 from .audit import Audit, BackendAttribution
 from .audit.provenance import check
@@ -49,6 +51,7 @@ def snapshot(world):
 
 def replay(db, output):
     saved_tick, raw = db.execute("SELECT tick,data FROM world").fetchone()
+    comm_ledger = has_comm(db)
     saved = json.loads(raw)
     check(type(saved_tick) is int and saved_tick >= 0 and type(saved["tick"]) is int, "invalid world tick")
     check(saved["tick"] == saved_tick and saved.get("scenario") == ENGINE_POLITY, "expected polity world")
@@ -72,13 +75,47 @@ def replay(db, output):
             for a in opening
         }
         index = w.build_index()
-        intents, decisions, operations = {}, {}, {}
+        intents, decisions, operations, frames = {}, {}, {}, {}
         for row in db.execute("SELECT * FROM turns WHERE tick=? ORDER BY actor", (tick,)):
             a = row["actor"]
             check(a in opening, f"{a}/{tick}: inactive resident")
             decisions[a] = json.loads(row["metrics"])
             frame, intents[a], operations[a] = audit.frame(row, w, index, decisions[a])
+            frames[a] = frame
             spread.delivered(a, frame)
+        comm_events = None
+        if comm_ledger and db.execute("SELECT 1 FROM comm_ticks WHERE tick=?", (tick,)).fetchone():
+            comm_intents = {
+                a: Intent.parse(reply, a)
+                for a, reply in db.execute("SELECT actor,reply FROM comm_turns WHERE tick=? ORDER BY actor", (tick,))
+            }
+            check(comm_intents.keys() == opening.keys(), f"missing deliberations at {tick}")
+            comm_events = w.settle_comm(comm_intents)
+            recorded_comm = [
+                tuple(row)
+                for row in db.execute(
+                    "SELECT viewer,tick,kind,source,detail FROM comm_events WHERE tick=? ORDER BY id", (tick,)
+                )
+            ]
+            check(comm_events == recorded_comm, f"deliberation replay mismatch at {tick}")
+            audit.whispers(comm_intents, opening, recorded_comm, opening_comms)
+            probe = {
+                a: replace(i, whisper=("x" if i.whisper != "x" else "y")) if i.whisper else i
+                for a, i in comm_intents.items()
+            }
+            shadow.settle_comm(probe)
+            check(shadow == w, f"deliberation whisper content affected third-party state at {tick}")
+            # Same-tick acquaintances may extend remote reach for the action phase.
+            opening_comms = {
+                a: (
+                    w.people[a].can_remote_comm(w.places[w.people[a].place].comms, w.all_items()),
+                    set(w.people[a].contacts),
+                )
+                for a in opening
+            }
+        for a, frame in frames.items():
+            if comm_events is not None or "comm" in frame:
+                audit.heard(frame, a, tick, comm_events or [])
         if tick == saved_tick:
             break
         check(intents.keys() == opening.keys(), f"missing decisions at {tick}")

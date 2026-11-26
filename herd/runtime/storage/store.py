@@ -9,7 +9,7 @@ from ...model import Intent, World, encode
 from ..memory import ResidentAgent
 from .notes import apply_note_ops, extra_note_events, note_ops_for
 from .replay import replay
-from .schema import PREFIX_SCHEMA, RECALL_KINDS, SCHEMA
+from .schema import COMM_SCHEMA, PREFIX_SCHEMA, RECALL_KINDS, SCHEMA, frame_events
 
 
 class Store:
@@ -19,6 +19,7 @@ class Store:
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute(PREFIX_SCHEMA)
+        self.db.executescript(COMM_SCHEMA)
 
     @classmethod
     def create(cls, path, count=None, seed=7, personas=None, scenario=None):
@@ -91,7 +92,7 @@ class Store:
                 "SELECT frame FROM turns WHERE actor=? AND tick<? ORDER BY tick",
                 (actor, before_tick),
             )
-            return [event for row in rows for event in json.loads(row["frame"])["events"]]
+            return [event for row in rows for event in frame_events(json.loads(row["frame"]))]
 
     def recall(self, viewer, peers, cut):
         with self._lock:
@@ -103,7 +104,7 @@ class Store:
                 "SELECT frame FROM turns WHERE actor=? AND tick<=? ORDER BY tick DESC", (viewer, cut)
             )
             for row in rows:
-                for event in reversed(json.loads(row["frame"])["events"]):
+                for event in reversed(frame_events(json.loads(row["frame"]))):
                     if event["source"] in near and event["kind"] in RECALL_KINDS:
                         recalled.append(event)
                         if len(recalled) == 3:
@@ -131,11 +132,7 @@ class Store:
         # cannot otherwise be retried once every decision has been staged.
         intent = Intent.parse(reply, request.actor)
         note_ops_for(intent, metrics)
-        packed = (
-            b"B" + zlib.compress(key)
-            if isinstance(key, bytes)
-            else b"T" + zlib.compress(encode(key).encode())
-        )
+        packed = self._pack(key)
         with self._lock, self.db:
             staged = self.db.execute(
                 """INSERT OR IGNORE INTO turns
@@ -153,14 +150,106 @@ class Store:
                 ),
             )
             if staged.rowcount:
-                self.db.execute("INSERT INTO recent_prefixes(scope,value) VALUES(?,?)", (scope, packed))
-                self.db.execute(
-                    """DELETE FROM recent_prefixes WHERE scope=? AND id NOT IN
-                    (SELECT id FROM recent_prefixes WHERE scope=? ORDER BY id DESC LIMIT ?)""",
-                    (scope, scope, capacity),
-                )
-
+                self._remember_prefix(scope, packed, capacity)
             return bool(staged.rowcount)
+
+    def _remember_prefix(self, scope, packed, capacity):
+        self.db.execute("INSERT INTO recent_prefixes(scope,value) VALUES(?,?)", (scope, packed))
+        self.db.execute(
+            """DELETE FROM recent_prefixes WHERE scope=? AND id NOT IN
+            (SELECT id FROM recent_prefixes WHERE scope=? ORDER BY id DESC LIMIT ?)""",
+            (scope, scope, capacity),
+        )
+
+    @staticmethod
+    def _pack(key):
+        return (
+            b"B" + zlib.compress(key)
+            if isinstance(key, bytes)
+            else b"T" + zlib.compress(encode(key).encode())
+        )
+
+    # ---- Two-phase ticks: opening deliberation barrier -------------------------------
+
+    def comm_staged(self, tick):
+        with self._lock:
+            return {r[0] for r in self.db.execute("SELECT actor FROM comm_turns WHERE tick=?", (tick,))}
+
+    def comm_settled(self, tick):
+        with self._lock:
+            return self.db.execute("SELECT 1 FROM comm_ticks WHERE tick=?", (tick,)).fetchone() is not None
+
+    def comm_turn(self, actor, tick):
+        with self._lock:
+            row = self.db.execute(
+                "SELECT frame,reply,cut,digest,compressed,metrics FROM comm_turns WHERE actor=? AND tick=?",
+                (actor, tick),
+            ).fetchone()
+            if row is None:
+                return None
+            heard = [
+                dict(r)
+                for r in self.db.execute(
+                    "SELECT tick,kind,source,detail FROM comm_events WHERE viewer=? AND tick=? ORDER BY id",
+                    (actor, tick),
+                )
+            ]
+            metrics = json.loads(row["metrics"])
+            return dict(
+                frame=json.loads(row["frame"]),
+                reply=row["reply"],
+                cut=row["cut"],
+                digest=json.loads(row["digest"]),
+                compressed=row["compressed"],
+                note_ops=metrics.get("note_ops", []),
+                heard=heard,
+            )
+
+    def stage_comm(self, tick, request, reply, metrics, scope, key, capacity):
+        intent = Intent.parse(reply, request.actor)
+        if intent.action != "wait" or intent.roe or intent.note_key:
+            raise ValueError("deliberation replies carry only speech and whispers")
+        note_ops_for(intent, metrics)
+        packed = self._pack(key)
+        with self._lock, self.db:
+            staged = self.db.execute(
+                """INSERT OR IGNORE INTO comm_turns
+                SELECT ?,?,?,?,?,?,?,? WHERE (SELECT tick FROM world)=?
+                AND NOT EXISTS (SELECT 1 FROM comm_ticks WHERE tick=?)""",
+                (
+                    request.actor,
+                    tick,
+                    encode(request.frame),
+                    reply,
+                    request.cut,
+                    encode(request.digest),
+                    request.compressed,
+                    encode(metrics),
+                    tick,
+                    tick,
+                ),
+            )
+            if staged.rowcount:
+                self._remember_prefix(scope, packed, capacity)
+            return bool(staged.rowcount)
+
+    def settle_comm(self, tick):
+        with self._lock, self.db:
+            self.db.execute("BEGIN IMMEDIATE")
+            world = self.world()
+            if world.tick != tick or self.comm_settled(tick):
+                return False
+            rows = self.db.execute("SELECT actor,reply FROM comm_turns WHERE tick=? ORDER BY actor", (tick,)).fetchall()
+            intents = {r["actor"]: Intent.parse(r["reply"], r["actor"]) for r in rows}
+            if set(intents) != set(world.active_residents()):
+                raise RuntimeError("missing resident deliberations")
+            events = world.settle_comm(intents)
+            self.db.executemany(
+                "INSERT INTO comm_events(viewer,tick,kind,source,detail) VALUES(?,?,?,?,?)", events
+            )
+            self.db.execute("INSERT INTO comm_ticks(tick) VALUES(?)", (tick,))
+            self.db.execute("UPDATE world SET data=? WHERE id=1", (encode(world.to_dict()),))
+        return True
 
     def advance(self, tick):
         with self._lock, self.db:
@@ -226,10 +315,36 @@ class Store:
                 "by_profile": {},
                 "by_model": {},
             }
-            for actor, raw in self.db.execute(
-                "SELECT actor,metrics FROM turns WHERE tick<? ORDER BY tick,actor", (tick,)
-            ):
+            rows = [
+                (actor, raw, False)
+                for actor, raw in self.db.execute(
+                    "SELECT actor,metrics FROM turns WHERE tick<? ORDER BY tick,actor", (tick,)
+                )
+            ] + [
+                (actor, raw, True)
+                for actor, raw in self.db.execute(
+                    "SELECT actor,metrics FROM comm_turns WHERE tick<? ORDER BY tick,actor", (tick,)
+                )
+            ]
+            result["comm_decisions"] = 0
+            for actor, raw, deliberation in rows:
                 metric = json.loads(raw)
+                if deliberation:
+                    result["comm_decisions"] += 1
+                    result["loop_steps"] += metric.get("loop_steps", 0)
+                    result["prompt_tokens"] += metric.get("prompt_tokens") or 0
+                    if metric.get("cached_tokens") is not None:
+                        result["server_cache_reports"] += 1
+                        result["server_cached_tokens"] += metric["cached_tokens"]
+                    for field in ("profile", "model"):
+                        bucket = result["by_" + field].setdefault(
+                            metric.get(field) or "unknown",
+                            dict(decisions=0, prompt_tokens=0, cached_tokens=0, loop_steps=0, actors=set()),
+                        )
+                        bucket["loop_steps"] += metric.get("loop_steps", 0)
+                        bucket["prompt_tokens"] += metric.get("prompt_tokens") or 0
+                        bucket["cached_tokens"] += metric.get("cached_tokens") or 0
+                    continue
                 for field in ("profile", "model"):
                     label = metric.get(field) or "unknown"
                     bucket = result["by_" + field].setdefault(

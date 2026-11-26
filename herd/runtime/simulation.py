@@ -38,9 +38,12 @@ class Simulation:
 
     def decision(self, req):
         reply, note_ops, metrics = self.decision_agents[req.actor].run_turn(req)
+        if req.comm_ops:
+            # Notes written while deliberating commit with the action at the tick barrier.
+            note_ops = [*req.comm_ops, *note_ops]
         return reply, dict(metrics, note_ops=note_ops)
 
-    def _run_scope(self, tick, backend, requests):
+    def _run_scope(self, tick, backend, requests, stage):
         anchors = self.anchors_by_scope[backend.scope]
         workers = backend.workers or self.workers
         staged = 0
@@ -64,7 +67,7 @@ class Simulation:
                         errors.append(exc)
                         continue
                     metrics[f"matched_prefix_{backend.unit}"] = length
-                    if self.store.stage(tick, req, reply, metrics, backend.scope, key, anchors.maxlen):
+                    if stage(tick, req, reply, metrics, backend.scope, key, anchors.maxlen):
                         staged += 1
                         anchors.append(key)
             if errors:
@@ -72,14 +75,32 @@ class Simulation:
         return staged
 
     def step(self, decision_budget=None):
+        """Advance one tick: [opening deliberation barrier ->] action barrier -> settlement."""
         if decision_budget is not None and decision_budget < 1:
             raise ValueError("decision budget must be positive")
         self.last_decisions = 0
-        groups = defaultdict(list)
         with self.store.read_snapshot():
             world = self.store.world()
             tick = world.tick
-            remaining = set(world.active_residents()) - self.store.staged(tick)
+            two_phase = bool(world.spec["rules"].get("comm_rounds", 0))
+        if two_phase and not self.store.comm_settled(tick):
+            if not self._phase(tick, "comm", decision_budget):
+                return False
+            self.store.settle_comm(tick)
+            if decision_budget is not None:
+                decision_budget -= self.last_decisions
+                if decision_budget < 1:
+                    return False
+        return self._phase(tick, "action" if two_phase else "", decision_budget) and self.store.advance(tick)
+
+    def _phase(self, tick, phase, decision_budget):
+        groups = defaultdict(list)
+        with self.store.read_snapshot():
+            world = self.store.world()
+            if world.tick != tick:
+                return False
+            staged = self.store.comm_staged(tick) if phase == "comm" else self.store.staged(tick)
+            remaining = set(world.active_residents()) - staged
             agents = [a for a in self.agents if a.actor in remaining][:decision_budget]
             index = world.build_index()
             for agent in agents:
@@ -92,17 +113,20 @@ class Simulation:
                     backend.context_bytes or self.context_bytes,
                     index,
                     mode=backend.mode,
+                    phase=phase,
+                    comm=self.store.comm_turn(agent.actor, tick) if phase == "action" else None,
                 )
                 groups[backend.scope].append(req)
 
+        stage = self.store.stage_comm if phase == "comm" else self.store.stage
         if len(groups) == 1:
             scope, requests = next(iter(groups.items()))
-            self.last_decisions = self._run_scope(tick, self.backends_by_scope[scope], requests)
+            self.last_decisions += self._run_scope(tick, self.backends_by_scope[scope], requests, stage)
         elif groups:
             with ThreadPoolExecutor(max_workers=len(groups)) as coordinators:
                 futures = [
-                    coordinators.submit(self._run_scope, tick, self.backends_by_scope[scope], requests)
+                    coordinators.submit(self._run_scope, tick, self.backends_by_scope[scope], requests, stage)
                     for scope, requests in groups.items()
                 ]
-                self.last_decisions = sum(f.result() for f in futures)
-        return len(agents) == len(remaining) and self.store.advance(tick)
+                self.last_decisions += sum(f.result() for f in futures)
+        return len(agents) == len(remaining)

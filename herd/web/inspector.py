@@ -11,6 +11,7 @@ import threading
 from ..model import Intent, World
 from ..model.time import diurnal
 from ..runtime.storage.notes import apply_note_ops, note_ops_for
+from ..runtime.storage.schema import has_comm
 
 CN_NUMS = (
     "一",
@@ -227,6 +228,7 @@ class RunCache:
                 assert self.world is not None
 
                 interval = self.spec["rules"]["clock_interval"]
+                comm_ledger = has_comm(mem)
                 for t in range(self.committed_tick, cur_tick):
                     rows = mem.execute(
                         "SELECT actor, reply, metrics FROM turns WHERE tick=?", (t,)
@@ -252,6 +254,22 @@ class RunCache:
 
                     opening_places = {pid: p.place for pid, p in self.world.people.items()}
                     trace: list[dict] = []
+                    if comm_ledger and mem.execute("SELECT 1 FROM comm_ticks WHERE tick=?", (t,)).fetchone():
+                        comm_intents = {}
+                        for comm_row in mem.execute(
+                            "SELECT actor, reply FROM comm_turns WHERE tick=?", (t,)
+                        ).fetchall():
+                            comm_actor = comm_row["actor"]
+                            comm_intents[comm_actor] = Intent.parse(comm_row["reply"], comm_actor, None)
+                            said = {
+                                k: v
+                                for k, v in json.loads(comm_row["reply"]).items()
+                                if k in ("speech", "whisper", "whisper_to") and v
+                            }
+                            if said and comm_actor in raw_decisions:
+                                raw_decisions[comm_actor]["comm"] = said
+                        # Same-tick deliveries and acquaintance links precede the action barrier.
+                        self.world.settle_comm(comm_intents, trace=trace)
                     events = self.world.settle(intents, trace=trace)
 
                     people_snap, places_snap, docs_snap = _snapshot_world(self.world, opening_places)
@@ -339,11 +357,19 @@ class RunCache:
         by_model: dict[str, dict] = defaultdict(
             lambda: dict(turns=0, steps=0, prompt_tokens=0, cached_tokens=0, completion_tokens=0)
         )
-        for row in mem.execute("SELECT metrics FROM turns WHERE tick < ?", (self.committed_tick,)):
-            met = json.loads(row["metrics"]) if row["metrics"] else {}
+        rows = [(row["metrics"], False) for row in mem.execute("SELECT metrics FROM turns WHERE tick < ?", (self.committed_tick,))]
+        if has_comm(mem):
+            rows += [
+                (row["metrics"], True)
+                for row in mem.execute("SELECT metrics FROM comm_turns WHERE tick < ?", (self.committed_tick,))
+            ]
+        for raw, deliberation in rows:
+            met = json.loads(raw) if raw else {}
+            if met.get("skipped"):
+                continue
             model = met.get("model") or "offline"
             bucket = by_model[model]
-            bucket["turns"] += 1
+            bucket["turns"] += 0 if deliberation else 1
             bucket["steps"] += int(met.get("loop_steps") or 1)
             for key in ("prompt_tokens", "cached_tokens", "completion_tokens"):
                 if isinstance(met.get(key), int):

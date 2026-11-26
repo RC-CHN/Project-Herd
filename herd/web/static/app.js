@@ -337,11 +337,9 @@ function buildScenes(tk) {
 
     const noteOps = (tk.note_ops || {})[aid] || [];
     const special = isSpecialItem(dec.item || "", tk);
-    const isRemoteWhisper = Boolean(
-      dec.whisper && dec.whisper_to && dec.whisper_to.split(",").some(t => tk.people[t.trim()] && tk.people[t.trim()].from_place !== pl)
-    );
-    const hasSpeech = Boolean(dec.speech && dec.speech.trim());
-    const hasWhisper = Boolean(dec.whisper && dec.whisper.trim());
+    const isRemoteWhisper = saidWhispers(dec).some(w => w.to.some(t => tk.people[t] && tk.people[t].from_place !== pl));
+    const hasSpeech = Boolean((dec.speech && dec.speech.trim()) || (dec.comm?.speech && dec.comm.speech.trim()));
+    const hasWhisper = saidWhispers(dec).length > 0;
     const hasNote = noteOps.some(op => op.op === "write");
     const isElite = roleInfo(aid).initial_size === 1;
     const isLethalRoe = dec.roe && app.meta.rules.force_modes?.[dec.roe]?.lethal;
@@ -490,9 +488,8 @@ function renderStageMap(tk, scenes) {
   // Remote whispers touching focusPlace / POV actor
   const drawn = new Set();
   Object.entries(tk.decisions || {}).forEach(([aid, dec]) => {
-    if (!dec.whisper || !dec.whisper_to) return;
     const fromPl = tk.people[aid]?.from_place;
-    dec.whisper_to.split(",").map(s => s.trim()).forEach(tid => {
+    saidWhispers(dec).flatMap(w => w.to).forEach(tid => {
       const toPl = tk.people[tid]?.from_place;
       if (!fromPl || !toPl || fromPl === toPl) return;
       if ((app.mode === "pov" || app.fogMode) && aid !== app.povActor && tid !== app.povActor) return;
@@ -725,17 +722,40 @@ function renderBroadsheet(doc, tk) {
     </div>`;
 }
 
+// Speech/whispers of one decision: the opening deliberation (heard this tick) first, then the action phase (heard next tick).
+function saidWhispers(dec) {
+  const out = [];
+  [[dec.comm, "comm"], [dec, "action"]].forEach(([src, phase]) => {
+    if (src && src.whisper && src.whisper.trim() && src.whisper_to) {
+      out.push({ phase, text: src.whisper, to: src.whisper_to.split(",").map(s => s.trim()).filter(Boolean) });
+    }
+  });
+  return out;
+}
+
+function renderSaid(b, tk, src, phase) {
+  if (!src) return "";
+  const showWhisper = !app.fogMode || b.aid === app.povActor || (src.whisper_to || "").split(",").map(s => s.trim()).includes(app.povActor);
+  const targets = (src.whisper_to || "").split(",").map(t => t.trim()).filter(Boolean);
+  const remote = targets.some(t => tk.people[t] && tk.people[t].from_place !== b.st.from_place);
+  const whTargets = targets.map(t => {
+    const far = tk.people[t] && tk.people[t].from_place !== b.st.from_place;
+    return `${roleInfo(t).display}${far ? `(@${placeLabel(tk.people[t].from_place)})` : ""}`;
+  }).join("、");
+  const tag = phase === "comm" ? `<span class="phase-tag">商议</span>` : "";
+  return `
+      ${src.speech ? `<div class="dialogue">${tag}「${escapeHtml(src.speech)}」</div>` : ""}
+      ${showWhisper && src.whisper ? `
+        <div class="whisper-line">
+          <div class="whisper-meta">${tag}${remote ? "📻 跨房通联" : "🤫 附耳低声"} → ${escapeHtml(whTargets)}</div>
+          <div>${escapeHtml(src.whisper)}</div>
+        </div>` : ""}`;
+}
+
 function renderBeat(b, tk) {
   const r = roleInfo(b.aid);
   const color = roleColor(r.role);
-  const showWhisper = !app.fogMode || b.aid === app.povActor || (b.dec.whisper_to || "").split(",").map(s => s.trim()).includes(app.povActor);
   const showNotes = !app.fogMode || b.aid === app.povActor;
-  const whTargets = b.dec.whisper_to
-    ? b.dec.whisper_to.split(",").map(t => t.trim()).filter(Boolean).map(t => {
-        const remote = tk.people[t] && tk.people[t].from_place !== b.st.from_place;
-        return `${roleInfo(t).display}${remote ? `(@${placeLabel(tk.people[t].from_place)})` : ""}`;
-      }).join("、")
-    : "";
   const writtenNotes = showNotes ? b.noteOps.filter(op => op.op === "write") : [];
   const isLethal = b.st.roe && app.meta.rules.force_modes?.[b.st.roe]?.lethal;
 
@@ -749,13 +769,9 @@ function renderBeat(b, tk) {
         </span>
         <span style="font-size:11px;color:var(--blood);">${isLethal ? `🔴 ${escapeHtml(app.meta.rules.force_modes[b.st.roe].label)}` : ""}</span>
       </div>
+      ${renderSaid(b, tk, b.dec.comm, "comm")}
       ${b.direction ? `<div class="stage-direction">▸ ${escapeHtml(b.direction)}</div>` : ""}
-      ${b.dec.speech ? `<div class="dialogue">「${escapeHtml(b.dec.speech)}」</div>` : ""}
-      ${showWhisper && b.dec.whisper ? `
-        <div class="whisper-line">
-          <div class="whisper-meta">${b.isRemoteWhisper ? "📻 跨房通联" : "🤫 附耳低声"} → ${escapeHtml(whTargets)}</div>
-          <div>${escapeHtml(b.dec.whisper)}</div>
-        </div>` : ""}
+      ${renderSaid(b, tk, b.dec, "action")}
       ${writtenNotes.map(n => `
         <div class="inner-note">
           <div class="inner-note-label">✒️ 内心密记 · ${escapeHtml(n.key)}</div>
@@ -787,10 +803,9 @@ function renderPov(aid, allTicks) {
     const noteOps = (tk.note_ops || {})[aid] || [];
     const myCombats = (tk.trace || []).filter(e => e.type === "combat" && (e.attackers.includes(aid) || e.defenders.includes(aid)));
     const incomingWhispers = Object.entries(tk.decisions || {})
-      .filter(([src, d]) => d.whisper && (d.whisper_to || "").split(",").map(s => s.trim()).includes(aid))
-      .map(([src, d]) => ({ src, text: d.whisper, fromPl: tk.people[src]?.from_place }));
+      .flatMap(([src, d]) => saidWhispers(d).filter(w => w.to.includes(aid)).map(w => ({ src, text: w.text, phase: w.phase, fromPl: tk.people[src]?.from_place })));
     const dir = dec ? describeAction(aid, dec, tk) : "";
-    const hasContent = (dec && (dec.speech || dec.whisper || dir)) || noteOps.length || myCombats.length || incomingWhispers.length;
+    const hasContent = (dec && (dec.speech || dec.whisper || dec.comm || dir)) || noteOps.length || myCombats.length || incomingWhispers.length;
     if (!hasContent) return;
 
     html += `
@@ -805,7 +820,7 @@ function renderPov(aid, allTicks) {
           ${myCombats.map(c => renderClashStrip(c, tk)).join("")}
           ${incomingWhispers.map(w => `
             <div class="whisper-line" style="margin-bottom:8px;">
-              <div class="whisper-meta">📩 收到 ${escapeHtml(roleInfo(w.src).display)}(@${escapeHtml(placeLabel(w.fromPl))}) 私语</div>
+              <div class="whisper-meta">${w.phase === "comm" ? `<span class="phase-tag">商议</span>` : ""}📩 收到 ${escapeHtml(roleInfo(w.src).display)}(@${escapeHtml(placeLabel(w.fromPl))}) 私语</div>
               <div>${escapeHtml(w.text)}</div>
             </div>`).join("")}
           ${dec ? renderBeat({

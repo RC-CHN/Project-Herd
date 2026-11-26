@@ -9,7 +9,10 @@ from .gates import GateSystem
 
 
 class CommSystem:
-    def __init__(self, world):
+    def __init__(self, world, phase=None):
+        self.phase = phase
+        # Independent detection draws per phase; the legacy key stays unchanged for old archives.
+        self.salt = "whisper" if phase is None else f"whisper-{phase}"
         self.present = defaultdict(list)
         self.huddles = {}
         self.gates = GateSystem(world)
@@ -49,7 +52,8 @@ class CommSystem:
                     ctx.event(viewer, "speech", actor, intent.speech)
                 if ctx.trace is not None:
                     ctx.record(
-                        "comm", kind="speech", place=place, actor=actor, targets=table, detected_by=[]
+                        "comm", kind="speech", place=place, actor=actor, targets=table, detected_by=[],
+                        **({"phase": self.phase} if self.phase else {}),
                     )
             if intent.whisper and intent.whisper_to:
                 self.whisper(ctx, actor, place, intent)
@@ -117,7 +121,7 @@ class CommSystem:
             if night_factor != 1.0:
                 chance *= night_factor
             chance = min(ctx.rules["whisper_detect_max"], max(ctx.rules["whisper_detect_min"], chance))
-            if sample(f"whisper/{ctx.world.seed}/{ctx.tick}/{actor}/{label}/{viewer}") < chance:
+            if sample(f"{self.salt}/{ctx.world.seed}/{ctx.tick}/{actor}/{label}/{viewer}") < chance:
                 ctx.event(viewer, "spotted_whisper", actor, f"privately whispered with {label}")
                 if ctx.trace is not None:
                     detected.append(viewer)
@@ -130,4 +134,5 @@ class CommSystem:
                 targets=targets,
                 remote=remote_targets,
                 detected_by=detected,
+                **({"phase": self.phase} if self.phase else {}),
             )

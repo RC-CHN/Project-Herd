@@ -4,8 +4,21 @@ from dataclasses import dataclass, field
 import json
 
 from ..model import RULES, Intent, encode
-from ..model.intent import WORLD_RULES
+from ..model.intent import PHASE_RULES, WORLD_RULES
 from ..model.observation import local_context
+
+
+def frame_events(frame):
+    """Every event that reached a resident in one tick (mirrors storage.schema.frame_events)."""
+    return [*frame["events"], *frame.get("comm", {}).get("heard", [])]
+
+
+def _apply_note_ops(notes, ops, tick):
+    for op in ops:
+        if op["op"] == "write":
+            notes[op["key"]] = {"tick": tick, "text": op["text"]}
+        else:
+            notes.pop(op["key"], None)
 
 
 @dataclass
@@ -17,6 +30,10 @@ class Request:
     digest: list
     compressed: bool
     local: dict = field(default_factory=dict)
+    # "" = single-phase tick; "comm" = opening deliberation; "action" = action after deliberation.
+    phase: str = ""
+    # Private note operations already made during this tick's deliberation (prepended at staging).
+    comm_ops: list = field(default_factory=list)
 
 
 SPOKEN_STYLE_GUIDE = (
@@ -189,6 +206,50 @@ def render_tool_history(tick, reply_raw):
     return [{"role": "assistant", "content": "", "tool_calls": calls}, *tool_msgs]
 
 
+SILENT_DELIBERATION = "（商议阶段未发言）"
+
+
+def render_comm_history(tick, reply_raw, note_ops=()):
+    """Project an archived deliberation into tool calls, mirroring render_tool_history."""
+    intent = Intent.parse(reply_raw)
+    specs = []
+    for op in note_ops:
+        if op["op"] == "write":
+            specs.append(("write_note", {"key": op["key"], "text": op["text"]}, {"ok": True}))
+        else:
+            specs.append(("delete_note", {"key": op["key"]}, {"ok": True}))
+    if intent.speech:
+        specs.append(("stage_speech", {"text": intent.speech}, {"ok": True, "staged": "speech"}))
+    if intent.whisper and intent.whisper_to:
+        targets = [peer.strip() for peer in intent.whisper_to.split(",") if peer.strip()]
+        specs.append(("stage_whisper", {"targets": targets, "text": intent.whisper}, {"ok": True, "staged": "whisper"}))
+    if not specs:
+        return [{"role": "assistant", "content": SILENT_DELIBERATION}]
+    calls, tool_msgs = [], []
+    for idx, (name, args, result) in enumerate(specs):
+        call_id = f"c-{tick}-{idx}"
+        calls.append({"type": "function", "id": call_id, "function": {"name": name, "arguments": encode(args)}})
+        tool_msgs.append({"role": "tool", "tool_call_id": call_id, "content": encode(result)})
+    return [{"role": "assistant", "content": "", "tool_calls": calls}, *tool_msgs]
+
+
+def heard_message(heard, actor_id):
+    """The action-phase prompt: only what others said during this tick's deliberation."""
+    slim = []
+    for ev in heard:
+        if ev["kind"] == "whisper_sent" or (ev["kind"] == "speech" and ev["source"] == actor_id):
+            continue
+        slim.append({k: v for k, v in ev.items() if k != "tick"})
+    return message("user", encode({"phase": "action", "heard": slim}))
+
+
+def deliberation_messages(tick, comm, actor_id):
+    return [
+        *render_comm_history(tick, comm["reply"], comm.get("note_ops", ())),
+        heard_message(comm["heard"], actor_id),
+    ]
+
+
 DOC_PREVIEW_CHARS = 50
 FOLD_TARGET_RATIO = 0.55
 
@@ -351,7 +412,7 @@ def compact_frame_for_loop(
         if key in compact_view and not compact_view[key]:
             compact_view.pop(key, None)
 
-    out = {"view": compact_view}
+    out = {"phase": frame["phase"], "view": compact_view} if frame.get("phase") else {"view": compact_view}
     events = frame.get("events")
     if events:
         prev_tick = view.get("tick", 0) - 1 if isinstance(view.get("tick"), int) else None
@@ -431,26 +492,45 @@ class ResidentAgent:
         *,
         mode="json",
         fold_target=FOLD_TARGET_RATIO,
+        phase="",
+        comm=None,
     ):
+        """Build one resident's request.
+
+        phase="comm" opens a two-phase tick; phase="action" continues it from the archived
+        deliberation ``comm`` (see Store.comm_turn) so the opening frame, history cut and digest
+        are identical and the prompt grows strictly append-only within the tick.
+        """
         tick = world.tick
         state = store.mind(self.actor)
         initial_cut = cut = state["cut"]
         digest = state["digest"]
+        meeting = meeting or world.build_index()
+        notes_now = state["notes"]
+        if comm is not None:
+            cut, digest = comm["cut"], comm["digest"]
+            frame = {k: v for k, v in comm["frame"].items() if k != "comm"}
+            view = frame["view"]
+            frame["comm"] = {"reply": comm["reply"], "heard": comm["heard"], "note_ops": comm["note_ops"]}
+            notes_now = {k: dict(v) for k, v in state["notes"].items()}
+            _apply_note_ops(notes_now, comm["note_ops"], tick)
+        else:
+            view = world.observe(self.actor, meeting)
+            frame = {
+                "view": view,
+                "events": store.events(self.actor, tick - 1, tick - 1),
+                "notes": state["notes"],
+            }
+            if phase == "comm":
+                frame = {"phase": "comm", **frame}
         history = store.history(self.actor, cut, tick)
         parsed_history = [json.loads(turn["frame"]) for turn in history]
-        meeting = meeting or world.build_index()
-        view = world.observe(self.actor, meeting)
-        frame = {
-            "view": view,
-            "events": store.events(self.actor, tick - 1, tick - 1),
-            "notes": state["notes"],
-        }
 
         def fold(count):
             nonlocal cut, digest, history, parsed_history
             # The archived frame records exactly what made it into the resident's input,
             # including any omissions made to fit its context budget.
-            delivered = [event for raw in parsed_history[:count] for event in raw["events"]]
+            delivered = [event for raw in parsed_history[:count] for event in frame_events(raw)]
             digest = compress(digest, delivered)
             cut = history[count - 1]["tick"]
             history = history[count:]
@@ -459,14 +539,28 @@ class ResidentAgent:
         # window == 0 disables periodic folding so long local contexts stay append-only for KV cache.
         if window > 0 and len(history) >= window:
             fold(len(history) - keep)
-        frame["recall"] = store.recall(self.actor, view["near"], cut)
+        if comm is None or cut != comm["cut"]:
+            frame["recall"] = store.recall(self.actor, view["near"], cut)
         spec = world.spec
         person = world.people[self.actor]
         group = spec["groups"][person.role]
         rules = RULES
         static_items = None
         static_energy_decay = None
-        if mode == "agent_loop":
+        two_phase = bool(spec["rules"].get("comm_rounds", 0))
+        if mode == "agent_loop" and two_phase:
+            rules = (
+                "依据自己的局部观察和已送达的信息行动。开局帧已包含当前房间概况、公墙目录与你的私人笔记，"
+                "无需重复调用 inspect_room 或 read_notes；仅在需要核实文书全文、回忆某人过往或搜索旧线索时再调用查询工具。"
+                "商议阶段无需查询时请在第 1 步直接调用 stage_speech、stage_whisper、write_note（或不调用工具保持沉默）；"
+                "行动阶段无需查询时请在第 1 步并行调用 set_roe 与唯一的世界行动提交工具一次完成。"
+                "每阶段步数有限（工具返回会提示 remaining_steps），查清关键信息后请果断提交。"
+                "工具报错时可更正参数重试。历史对话中的工具调用记录是往轮已提交的决定。\n"
+                + PHASE_RULES
+                + "\n"
+                + WORLD_RULES
+            )
+        elif mode == "agent_loop":
             rules = (
                 "依据自己的局部观察和已送达的信息行动。开局帧已包含当前房间概况、公墙目录与你的私人笔记，"
                 "无需重复调用 inspect_room 或 read_notes；仅在需要核实文书全文、回忆某人过往或搜索旧线索时再调用查询工具。"
@@ -474,6 +568,7 @@ class ResidentAgent:
                 "每轮步数有限（工具返回会提示 remaining_steps），查清关键信息后请果断提交唯一的世界行动。"
                 "工具报错时可更正参数重试。历史对话中的工具调用记录是往轮已提交的决定。\n" + WORLD_RULES
             )
+        if mode == "agent_loop":
             static_items = frozenset(spec["items"].keys())
             static_energy_decay = world.energy_decay
             # Keep the entire system message 100% identical across all residents so every
@@ -529,6 +624,8 @@ class ResidentAgent:
                         )
                     )
                     messages.append(message("user", user_text))
+                    if raw_frame.get("comm"):
+                        messages.extend(deliberation_messages(turn["tick"], raw_frame["comm"], self.actor))
                     messages.extend(render_tool_history(turn["tick"], turn["reply"]))
                     prev_frame = raw_frame
                 current_frame = compact_frame_for_loop(
@@ -541,6 +638,8 @@ class ResidentAgent:
                     actor_id=self.actor,
                 )
                 messages.append(message("user", encode(current_frame)))
+                if comm is not None:
+                    messages.extend(deliberation_messages(tick, frame["comm"], self.actor))
             else:
                 for turn in history:
                     messages.append(message("user", turn["frame"]))
@@ -554,8 +653,18 @@ class ResidentAgent:
                 local = {}
                 if mode == "agent_loop":
                     local = local_context(world, self.actor, meeting)
-                    local["notes"] = state["notes"]
-                return Request(self.actor, messages, frame, cut, digest, cut != initial_cut, local)
+                    local["notes"] = notes_now
+                return Request(
+                    self.actor,
+                    messages,
+                    frame,
+                    cut,
+                    digest,
+                    cut != initial_cut,
+                    local,
+                    phase="action" if comm is not None else phase,
+                    comm_ops=list(comm["note_ops"]) if comm is not None else [],
+                )
             if history:
                 folding_history = True
                 fold(1)

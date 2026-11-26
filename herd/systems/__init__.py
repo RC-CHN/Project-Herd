@@ -29,6 +29,20 @@ def _apply_roe(ctx, intents):
             ctx.result(actor, f"roe set to {mode}")
 
 
+def settle_comm(world, intents, *, trace=None):
+    """Deliver the opening deliberation's speech and whispers inside the same tick.
+
+    Only acquaintance links change; positions, items, postures and the public
+    room summaries observed at the opening stay untouched until the action barrier.
+    """
+    summaries = {pid: room.last_summary for pid, room in world.places.items()}
+    ctx = RoundContext(world, intents, trace)
+    CommSystem(world, phase="comm").run(ctx)
+    for pid, summary in summaries.items():
+        world.places[pid].last_summary = summary
+    return ctx.events
+
+
 def settle(world, intents, *, trace=None):
     ctx = RoundContext(world, intents, trace)
     _apply_roe(ctx, intents)

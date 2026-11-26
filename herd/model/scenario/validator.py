@@ -372,13 +372,17 @@ def validate_polity(spec):
     rules.setdefault("force_modes", deepcopy(DEFAULT_FORCE_MODES))
     positive = "contact_size board_slots max_energy max_health whisper_detect_ref_crowd offer_ttl clock_interval carry_cap"
     probabilities = "whisper_detect_base whisper_detect_min whisper_detect_max whisper_same_huddle_bonus night_whisper_multiplier"
+    # comm_rounds stays optional (no default) so archives created before two-phase turns replay byte-identically.
+    if "comm_rounds" in rules and (type(rules["comm_rounds"]) is not int or rules["comm_rounds"] not in (0, 1)):
+        raise ValueError("rules.comm_rounds: expected 0 (single phase) or 1 (deliberation then action)")
     keys(
         rules,
         positive
         + " base_energy_decay low_energy_threshold exertion_energy_cost write_energy_cost body_weight"
         + " zero_energy_mode starvation_health_loss collective_starvation_health_loss"
         + " combat_damage_scale force_modes "
-        + probabilities,
+        + probabilities
+        + (" comm_rounds" if "comm_rounds" in rules else ""),
         "rules",
     )
     for field in positive.split():

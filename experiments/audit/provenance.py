@@ -32,7 +32,7 @@ class Audit:
         frame = json.loads(row["frame"])
         view = frame["view"]
         check(
-            set(frame) <= {"view", "notes", "events", "recall", "omitted_events", "omitted_notes"},
+            set(frame) <= {"view", "notes", "events", "recall", "omitted_events", "omitted_notes", "phase", "comm"},
             "unexpected frame fields",
         )
         check(same_json(view, world.observe(a, index)), f"{a}/{tick}: opening view mismatch")
@@ -153,6 +153,19 @@ class Audit:
         intent = Intent.parse(row["reply"], a, view)
         operations = note_ops_for(intent, metrics)
         return frame, intent, operations
+
+    def heard(self, frame, actor, tick, comm_events):
+        """The action frame must carry exactly this resident's committed same-tick deliveries."""
+        expected = [
+            dict(tick=t, kind=kind, source=source, detail=detail)
+            for viewer, t, kind, source, detail in comm_events
+            if viewer == actor
+        ]
+        heard = frame.get("comm", {}).get("heard")
+        check(heard is not None and same_json(heard, expected), f"{actor}/{tick}: deliberation delivery")
+        for entry in map(evidence, heard):
+            self.seen[actor].setdefault(entry, tick)
+        self.counts["deliberation_deliveries"] += len(heard)
 
     @staticmethod
     def whisper_targets(actor, intent, opening, opening_comms=None):
