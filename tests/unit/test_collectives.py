@@ -243,8 +243,8 @@ class CollectivesTests(PolityCase):
         spec = load("bayport-crisis")
         w = World.create(spec, spec["default_residents"], 42)
         counts = Counter(p.role for p in w.people.values())
-        self.assertEqual(len(w.people), 60)
-        self.assertEqual(sum(p.size for p in w.people.values()), 667)
+        self.assertEqual(len(w.people), 63)
+        self.assertEqual(sum(p.size for p in w.people.values()), 742)
         self.assertEqual(
             counts,
             dict(
@@ -264,7 +264,7 @@ class CollectivesTests(PolityCase):
                 labor_leader=2,
                 worker_picket=4,
                 student_bloc=8,
-                civic_crowd=11,
+                civic_crowd=14,
                 constabulary=6,
                 garrison_unit=4,
                 field_unit=2,
