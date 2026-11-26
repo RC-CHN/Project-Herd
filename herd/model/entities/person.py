@@ -65,6 +65,14 @@ class Person:
     def armed(self, items: dict) -> bool:
         return any(qty > 0 and items[item]["kind"] == "arms" for item, qty in self.inv.items())
 
+    def lethal_armed(self, items: dict, snapshot=None) -> bool:
+        state = self if snapshot is None else snapshot
+        inv = state["inv"] if isinstance(state, Mapping) else state.inv
+        return any(
+            qty > 0 and items[item]["kind"] == "arms" and not items[item].get("nonlethal")
+            for item, qty in inv.items()
+        )
+
     def has_comm(self, items: dict, snapshot=None) -> bool:
         if snapshot is None:
             inv = self.inv

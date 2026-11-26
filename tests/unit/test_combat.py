@@ -184,7 +184,20 @@ class CombatTests(PolityCase):
         self.assertTrue(any(neighbors[a]["wounded"] for a in ("r000", "r001", "r002")))
         self.assertEqual(
             set(neighbors["r000"]),
-            {"id", "tag", "size", "disciplined", "roe", "known", "rels", "armed", "wounded", "weak", "exhausted"},
+            {
+                "id",
+                "tag",
+                "size",
+                "disciplined",
+                "roe",
+                "known",
+                "rels",
+                "armed",
+                "lethal_armed",
+                "wounded",
+                "weak",
+                "exhausted",
+            },
         )
         self.assertEqual(view["guards"]["persons"]["r001"]["armed_count"], 0)
 
@@ -269,3 +282,65 @@ class CombatTests(PolityCase):
         self.assertIn(("r002", 0, "result", "r002", "dropped 1 tile in combat"), events)
         self.assertTrue(any(e.get("kind") == "disarm" and e.get("item") == "tile" for e in trace))
         self.assertIn(dict(actor="r002", item="tile", qty=1), w.places["atrium"].last_summary["placed"])
+
+    def test_requires_lethal_arms_prevents_unarmed_and_nonlethal_phantom_gunfire(self):
+        from herd.model import load
+
+        spec = load("bayport-crisis")
+        w = World.create(spec, None, 7)
+        patrol = next(p for p in w.people.values() if p.role == "constabulary")
+        crowd = next(p for p in w.people.values() if p.role == "civic_crowd")
+        ig = next(p for p in w.people.values() if p.role == "inner_guard")
+        bystander = next(p for p in w.people.values() if p.role == "journalist")
+
+        # Patrol holds nonlethal baton only; crowd is unarmed; inner_guard holds lethal rifle.
+        patrol.place = "antechamber"
+        patrol.inv = {"baton": 1}
+        crowd.place = "plaza"
+        crowd.inv = {}
+        bystander.place = "academy"
+
+        # Patrol guards entry from plaza (even if someone sets roe=lethal with only a baton, max_roe stays push).
+        turn(w, {patrol.id: Intent("guard", "path:plaza", "none", roe="lethal"), ig.id: Intent("guard", "path:antechamber", "none")})
+        plaza_guard_view = w.observe(crowd.id)["guards"]["paths"]["antechamber"]
+        self.assertEqual(plaza_guard_view["armed_count"], 1)
+        self.assertEqual(plaza_guard_view["lethal_armed_count"], 0)
+        self.assertEqual(plaza_guard_view["max_roe"], "push")
+
+        # Unarmed crowd escalates roe=lethal against baton patrol -> still caps at push, 0 casualties, no gunfire sound!
+        trace = []
+        events = turn(
+            w,
+            {
+                patrol.id: Intent("guard", "path:plaza", "none", roe="push"),
+                crowd.id: Intent("force", "path:antechamber", roe="lethal"),
+            },
+            trace,
+        )
+        clash = next(e for e in trace if e["type"] == "combat")
+        self.assertEqual(clash["mode"], "push")
+        self.assertEqual(sum(clash["casualties"].values()), 0)
+        self.assertFalse(any(e[2] == "notice" and "邻室动静" in e[4] for e in events))
+
+        # Meanwhile rifle-armed inner_guard at inner_gate exposes lethal_armed_count=1, max_roe=lethal and triggers real lethal fire!
+        crowd.place = "antechamber"
+        crowd.health = 10
+        turn(w, {ig.id: Intent("guard", "path:antechamber", "none")})
+        gate_view = w.observe(crowd.id)["guards"]["paths"]["inner_gate"]
+        self.assertEqual(gate_view["armed_count"], 1)
+        self.assertEqual(gate_view["lethal_armed_count"], 1)
+        self.assertEqual(gate_view["max_roe"], "lethal")
+        trace2 = []
+        events2 = turn(
+            w,
+            {
+                ig.id: Intent("guard", "path:antechamber", "none"),
+                crowd.id: Intent("force", "path:inner_gate", roe="push"),
+            },
+            trace2,
+        )
+        clash2 = next(e for e in trace2 if e["type"] == "combat")
+        self.assertEqual(clash2["mode"], "lethal")
+        self.assertEqual(clash2["escalated_by"], [ig.id])
+        self.assertGreater(clash2["casualties"][crowd.id], 0)
+        self.assertTrue(any(e[2] == "notice" and "邻室动静" in e[4] for e in events2))

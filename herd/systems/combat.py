@@ -114,10 +114,22 @@ class CombatSystem:
         participants = attackers + defenders
         modes = ctx.rules["force_modes"]
         default_mode = min(modes, key=lambda k: (modes[k]["severity"], k))
+        unrestricted_modes = [k for k, v in modes.items() if not v.get("requires_lethal_arms")]
+        unarmed_cap = (
+            max(unrestricted_modes, key=lambda k: (modes[k]["severity"], k))
+            if unrestricted_modes
+            else default_mode
+        )
 
         def actor_mode(actor):
             m = ctx.world.people[actor].roe
-            return m if m in modes else default_mode
+            if m not in modes:
+                m = default_mode
+            if modes[m].get("requires_lethal_arms") and not ctx.world.people[actor].lethal_armed(
+                ctx.items, ctx.start[actor]
+            ):
+                return unarmed_cap
+            return m
 
         mode_id = max(
             (actor_mode(a) for a in participants),

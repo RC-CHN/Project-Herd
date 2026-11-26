@@ -92,7 +92,20 @@ class Audit:
         check(
             all(
                 set(p)
-                == {"id", "tag", "size", "disciplined", "roe", "known", "rels", "armed", "wounded", "weak", "exhausted"}
+                == {
+                    "id",
+                    "tag",
+                    "size",
+                    "disciplined",
+                    "roe",
+                    "known",
+                    "rels",
+                    "armed",
+                    "lethal_armed",
+                    "wounded",
+                    "weak",
+                    "exhausted",
+                }
                 for p in view["near"]
             ),
             "private peer fields",

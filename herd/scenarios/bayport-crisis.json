@@ -51,7 +51,8 @@
         "lanchester_exp": 2.0,
         "rout_shock": 2.0,
         "casualty_rate": 0.25,
-        "sound": "密集枪声与惨叫"
+        "sound": "密集枪声与惨叫",
+        "requires_lethal_arms": true
       }
     }
   },

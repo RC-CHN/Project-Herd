@@ -58,6 +58,7 @@ def observe(world, actor_id: str, index) -> dict:
                     known=peer.id in known,
                     rels=me.rels_for(peer.id),
                     armed=peer.armed(items),
+                    lethal_armed=peer.lethal_armed(items),
                     wounded=peer.health < rules["max_health"],
                     weak=peer.energy <= rules["low_energy_threshold"],
                     exhausted=peer.energy == 0,
@@ -107,7 +108,12 @@ def observe(world, actor_id: str, index) -> dict:
         discipline=me.discipline,
         roe=me.roe,
         force_modes={
-            k: dict(label=v["label"], severity=v["severity"], lethal=v["lethal"])
+            k: dict(
+                label=v["label"],
+                severity=v["severity"],
+                lethal=v["lethal"],
+                requires_lethal_arms=bool(v.get("requires_lethal_arms", False)),
+            )
             for k, v in rules["force_modes"].items()
         },
         place=room.id,

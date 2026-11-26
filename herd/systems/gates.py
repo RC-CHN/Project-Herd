@@ -107,16 +107,29 @@ class GateSystem:
 
         modes = world.spec["rules"]["force_modes"]
         default_mode = min(modes, key=lambda k: (modes[k]["severity"], k))
+        unrestricted_modes = [k for k, v in modes.items() if not v.get("requires_lethal_arms")]
+        unarmed_cap = (
+            max(unrestricted_modes, key=lambda k: (modes[k]["severity"], k))
+            if unrestricted_modes
+            else default_mode
+        )
+        all_items = world.all_items()
 
         def guard_roe(g):
-            r = world.people[g].roe
-            return r if r in modes else default_mode
+            person_g = world.people[g]
+            r = person_g.roe
+            if r not in modes:
+                r = default_mode
+            if modes[r].get("requires_lethal_arms") and not person_g.lethal_armed(all_items):
+                return unarmed_cap
+            return r
 
         def visible(guards):
             return dict(
                 count=len(guards),
                 total_size=sum(world.people[g].size for g in guards),
-                armed_count=sum(world.people[g].armed(world.all_items()) for g in guards),
+                armed_count=sum(world.people[g].armed(all_items) for g in guards),
+                lethal_armed_count=sum(world.people[g].lethal_armed(all_items) for g in guards),
                 max_roe=max((guard_roe(g) for g in guards), key=lambda m: (modes[m]["severity"], m), default=None),
                 known_guards=[g for g in guards if g in known],
             )

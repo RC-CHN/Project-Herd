@@ -174,14 +174,17 @@ def validate_force_modes(modes):
         mapping(mode, f"force_modes.{name}")
         mode.setdefault("casualty_rate", 0.4 if mode.get("lethal", True) else 0.0)
         mode.setdefault("sound", "")
+        mode.setdefault("requires_lethal_arms", False)
         keys(
             mode,
-            "label severity lethal_arms_scale damage_scale lethal lanchester_exp rout_shock casualty_rate sound",
+            "label severity lethal_arms_scale damage_scale lethal lanchester_exp rout_shock casualty_rate sound requires_lethal_arms",
             f"force_modes.{name}",
         )
         string(mode["label"], f"force_modes.{name}.label")
         if not isinstance(mode["sound"], str):
             raise ValueError(f"force_modes.{name}.sound: expected string")
+        if not isinstance(mode["requires_lethal_arms"], bool):
+            raise ValueError(f"force_modes.{name}.requires_lethal_arms: expected boolean")
         integer(mode["severity"], 1, f"force_modes.{name}.severity")
         number(mode["lethal_arms_scale"], 0, 1, f"force_modes.{name}.lethal_arms_scale")
         number(mode["damage_scale"], 0, math.inf, f"force_modes.{name}.damage_scale")
