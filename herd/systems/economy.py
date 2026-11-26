@@ -143,7 +143,10 @@ class EconomySystem:
             return "failed: disrupted by combat"
         target, item, qty = intent.target, intent.item, int(intent.qty or 1)
         if ctx.ledger.balance(person.id, item) < qty:
-            return "failed: transfer unavailable"
+            held_now = person.inv.get(item, 0) if item in ctx.items else person.docs.get(item, 0)
+            if held_now >= qty:
+                return "failed: transfer unavailable (newly acquired items become spendable next turn)"
+            return "failed: transfer unavailable (insufficient balance)"
         if target == "here":
             room = ctx.world.places[person.place]
             ctx.ledger.spend(person.id, item, qty)
@@ -152,10 +155,10 @@ class EconomySystem:
             ctx.transfer("put", room.id, person.id, room.id, item, qty)
             return f"placed {qty} {item} here"
         if not ctx.colocated(person.id, target):
-            return "failed: transfer unavailable"
+            return "failed: transfer unavailable (recipient not in room or inactive)"
         recipient = ctx.world.people[target]
         if item in ctx.items and recipient.fit_qty(item, ctx.items, recipient.carry_cap(ctx.rules["carry_cap"])) < qty:
-            return CAPACITY_FAILURE
+            return f"{CAPACITY_FAILURE} (recipient {target} carry cap full)"
         self.pay("give", person.id, target, item, qty)
         ctx.world.places[person.place].last_summary["given"].append(
             {"from": person.id, "to": target, "item": item, "qty": qty}

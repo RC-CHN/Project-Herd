@@ -65,7 +65,7 @@ class CommSystem:
         seen = list(dict.fromkeys(candidates))
         sender_comms = self._has_comms(ctx.world, actor, ctx.start[actor])
         sender_contacts = set(ctx.world.people[actor].contacts)
-        targets, remote_targets, unreachable = [], [], []
+        targets, remote_targets, unreachable, failed = [], [], [], []
         for peer in seen:
             if peer == actor:
                 continue
@@ -81,10 +81,19 @@ class CommSystem:
                     remote_targets.append(peer)
                 else:
                     unreachable.append(peer)
+            else:
+                if peer not in ctx.world.people or not ctx.world.people[peer].is_alive:
+                    failed.append((peer, "not present or inactive"))
+                elif not sender_comms:
+                    failed.append((peer, "not in your room and no remote comms"))
+                else:
+                    failed.append((peer, "not in your room and not in contacts"))
             if len(targets) == 4:
                 break
         for peer in unreachable:
             ctx.result(actor, f"remote contact {peer} unreachable")
+        for peer, reason in failed:
+            ctx.result(actor, f"whisper to {peer} failed: {reason}")
         if not targets:
             return
         for peer in targets:

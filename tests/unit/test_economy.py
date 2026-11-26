@@ -151,3 +151,12 @@ class EconomyTests(PolityCase):
         )
         self.assertIn(("r000", 2, "result", "r000", "failed: missing seal"), events)
         self.assertEqual(w.documents, {})
+
+        # Give failure reasons distinguish recipient absence/full cap, and expired offers notify issuer.
+        w5 = world()
+        w5.people["r002"].place = "annex"
+        ev_absent = turn(w5, {"r000": Intent("give", "r002", item="ration"), "r001": Intent("offer", "none", item="ration", detail="swap")})
+        self.assertTrue(any(e[0] == "r000" and "recipient not in room" in e[4] for e in ev_absent))
+        ev_expire = turn(w5, {})
+        self.assertEqual(w5.offers, {})
+        self.assertTrue(any(e[0] == "r001" and e[2] == "notice" and "邀约失效" in e[4] for e in ev_expire))

@@ -81,13 +81,20 @@ class NaturalClock:
                     person = world.people[actor]
                     if person.is_alive and (places == "*" or person.place in places):
                         ctx.event(actor, "notice", scheduled["source"], scheduled["text"])
-        world.offers = {
-            oid: offer
-            for oid, offer in world.offers.items()
-            if offer.expires > ctx.tick
-            and world.people[offer.issuer].is_alive
-            and world.people[offer.issuer].place == offer.place
-        }
+        active_offers = {}
+        for oid, offer in world.offers.items():
+            issuer = world.people[offer.issuer]
+            if offer.expires > ctx.tick and issuer.is_alive and issuer.place == offer.place:
+                active_offers[oid] = offer
+            elif issuer.is_alive:
+                why = "已过期" if offer.expires <= ctx.tick else "你已离开原地点"
+                ctx.event(
+                    offer.issuer,
+                    "notice",
+                    "world",
+                    f"【邀约失效】你发布的邀约 {offer.id}（{offer.give_qty} {offer.give_item}）{why}，已自动撤回。",
+                )
+        world.offers = active_offers
         world.tick += 1
 
     def shock(self, event, index, documents):

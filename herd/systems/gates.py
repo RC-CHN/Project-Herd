@@ -221,6 +221,10 @@ class GateSystem:
                 continue
             place = ctx.start[actor].place
             if self.world.people[actor].place != place:
+                ctx.result(
+                    actor,
+                    f"move to {intent.target} cancelled: displaced to {self.world.people[actor].place}",
+                )
                 continue
             if intent.target not in self.world.places[place].paths:
                 ctx.result(actor, "failed: unreachable place")
@@ -236,3 +240,10 @@ class GateSystem:
                 peer = self.world.people[person.posture.scope_target]
                 if not peer.is_alive or peer.place != person.place:
                     ctx.drop_guard(person)
+                    reason = "已退场" if not peer.is_alive else "已离开本屋"
+                    ctx.event(
+                        actor,
+                        "notice",
+                        "world",
+                        f"【护卫解除】你护卫的 {peer.id}({peer.tag}) {reason}，贴身护卫已自动解除。",
+                    )

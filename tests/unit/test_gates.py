@@ -138,3 +138,18 @@ class GatesTests(PolityCase):
             any(e[0] == "r000" and e[2] == "notice" and "拦阻记录" in e[4] and "r002(" in e[4] and "atrium→annex" in e[4] for e in events3)
         )
         self.assertEqual(w3.people["r002"].place, "atrium")
+
+        # Escort guard receives notice when protected peer leaves the room; failed whispers notify sender.
+        w4 = world()
+        w4.people["r003"].place = "annex"
+        ev4 = turn(
+            w4,
+            {
+                "r000": Intent("guard", "person:r001", detail="none"),
+                "r001": Intent("move", "annex"),
+                "r002": Intent("wait", whisper_to="r003", whisper="hello?"),
+            },
+        )
+        self.assertIsNone(w4.people["r000"].posture)
+        self.assertTrue(any(e[0] == "r000" and e[2] == "notice" and "护卫解除" in e[4] and "r001(" in e[4] for e in ev4))
+        self.assertTrue(any(e[0] == "r002" and e[2] == "result" and "whisper to r003 failed" in e[4] for e in ev4))

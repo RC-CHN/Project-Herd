@@ -43,9 +43,9 @@ class CombatSystem:
                 escorts = [g for g in self.gates.escorts(place, target) if g != target]
                 won = self.fight(place, "person", target, attackers, [target, *escorts])
                 if won and victim.is_alive:
-                    self.disarm(place, victim)
+                    self.disarm(place, victim, attackers)
 
-    def disarm(self, place, victim):
+    def disarm(self, place, victim, attackers=()):
         ctx = self.ctx
         candidates = [
             item
@@ -64,6 +64,9 @@ class CombatSystem:
         room.last_summary["placed"].append(dict(actor=victim.id, item=dropped, qty=1))
         ctx.transfer("disarm", room.id, victim.id, room.id, dropped, 1)
         ctx.result(victim.id, f"dropped 1 {dropped} in combat")
+        for atk in attackers:
+            if ctx.world.people[atk].is_alive:
+                ctx.result(atk, f"disarmed {victim.id}({victim.tag}): dropped 1 {dropped} to floor")
 
     def force_items(self, place, team):
         ctx = self.ctx
@@ -173,7 +176,14 @@ class CombatSystem:
                 routed=routed,
                 deaths=deaths,
             )
-        for side, side_won in ((attackers, won), (defenders, not won)):
+        tag_of = lambda a: f"{a}({ctx.world.people[a].tag})"
+        for side, opp_side, side_won in ((attackers, defenders, won), (defenders, attackers, not won)):
+            opp_tags = ",".join(tag_of(a) for a in opp_side)
+            esc_note = (
+                f" [escalated by {','.join(tag_of(e) for e in escalators)}]"
+                if lethal and escalators
+                else ""
+            )
             base_hit = win if side_won else loss
             hits = {}
             expected_cas = {}
@@ -217,9 +227,10 @@ class CombatSystem:
                 casualties[actor] = lost_pop
                 if not side_won and hit > 0:
                     ctx.disrupted.add(actor)
-                msg = f"combat {kind} ({mode_id}) {'won' if side_won else 'lost'}: damage {hit}"
+                msg = f"combat {kind} ({mode_id}) {'won' if side_won else 'lost'} vs {opp_tags}: damage {hit}"
                 if lost_pop and person.is_collective:
                     msg += f", casualties {lost_pop} (remaining {person.size})"
+                msg += esc_note
                 ctx.result(actor, msg)
                 if ctx.trace is not None:
                     damage[actor] = hit
@@ -256,7 +267,6 @@ class CombatSystem:
                                 ctx.event(witness.id, "notice", "world", notice)
         visible_places = {place, target} if kind == "path" else {place}
         total_cas = sum(casualties.values())
-        tag_of = lambda a: f"{a}({ctx.world.people[a].tag})"
         detail = (
             f"{','.join(tag_of(a) for a in attackers)} forced {scope} "
             f"({mode_spec['label']}, roe={mode_id} by {','.join(escalators)}) "

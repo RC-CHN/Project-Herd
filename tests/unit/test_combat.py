@@ -280,6 +280,12 @@ class CombatTests(PolityCase):
         self.assertNotIn("tile", w.people["r002"].inv)
         self.assertEqual(w.places["atrium"].items["tile"], before_floor_tile + 1)
         self.assertIn(("r002", 0, "result", "r002", "dropped 1 tile in combat"), events)
+        self.assertTrue(
+            any(e[0] == "r000" and e[2] == "result" and "disarmed r002(" in e[4] and "tile" in e[4] for e in events)
+        )
+        self.assertTrue(
+            any(e[0] == "r002" and e[2] == "result" and "vs " in e[4] and "r000(" in e[4] and "r001(" in e[4] for e in events)
+        )
         self.assertTrue(any(e.get("kind") == "disarm" and e.get("item") == "tile" for e in trace))
         self.assertIn(dict(actor="r002", item="tile", qty=1), w.places["atrium"].last_summary["placed"])
 
