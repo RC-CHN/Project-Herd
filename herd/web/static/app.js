@@ -586,7 +586,7 @@ function renderChronicle(tk, scenes, quietActors) {
         </div>
         <div class="scene-body">
           ${sc.remains.length ? `<div class="remains-strip">☠️ 房间地面遗骸：${sc.remains.map(r => escapeHtml(r.label)).join("、")}</div>` : ""}
-          ${sc.combats.map(renderClashStrip).join("")}
+          ${sc.combats.map(c => renderClashStrip(c, tk)).join("")}
           ${sc.docs.map(d => renderBroadsheet(d, tk)).join("")}
           ${sc.beats.slice(0, 9).map(b => renderBeat(b, tk)).join("")}
           ${sc.beats.length > 9 ? `<div style="font-size:12px;color:var(--text-dim);padding-top:8px;">……本房间另有 ${sc.beats.length - 9} 个次要单位表态</div>` : ""}
@@ -623,19 +623,89 @@ function renderChronicle(tk, scenes, quietActors) {
   if (qf) qf.onclick = () => { app.showQuiet = !app.showQuiet; renderChronicle(tk, scenes, quietActors); };
 }
 
-function renderClashStrip(c) {
-  const modeLabel = app.meta.rules.force_modes?.[c.mode]?.label || c.mode;
+function renderClashStrip(c, tk) {
+  const modeSpec = app.meta.rules.force_modes?.[c.mode] || {};
+  const modeLabel = modeSpec.label || c.mode;
+  const isLethal = Boolean(modeSpec.lethal);
   const atk = c.attackers.map(a => roleInfo(a).display).join("、");
   const def = c.defenders.map(d => roleInfo(d).display).join("、");
-  const casList = Object.entries(c.casualties || {}).filter(([, v]) => v > 0).map(([a, v]) => `${roleInfo(a).display} -${v}人`);
-  const routList = Object.entries(c.routed || {}).map(([a, dest]) => `${roleInfo(a).display} 溃退至「${placeLabel(dest)}」`);
+  const dest = c.kind === "path" ? (c.edge || []).find(p => p !== c.place) || "" : "";
+  const scopeDesc =
+    c.kind === "path"
+      ? `通往「${placeLabel(dest)}」通道`
+      : c.kind === "items"
+      ? "屋内地面物品看护"
+      : `人物压制（${roleInfo(c.defenders[0]).display}）`;
+  const outcomeBadge = c.winner === "attackers" ? "🏆 攻方胜出" : "🛡️ 守方胜出";
+
+  const consequences = [];
+  if (c.kind === "path") {
+    if (c.winner === "attackers") {
+      const entered = c.attackers
+        .filter(a => tk?.people?.[a]?.alive && tk.people[a].place === dest)
+        .map(a => roleInfo(a).display);
+      consequences.push(
+        entered.length
+          ? `${entered.join("、")} 突破封锁进入「${placeLabel(dest)}」，守方被迫撤除通道值守`
+          : `守方被迫撤除通往「${placeLabel(dest)}」的通道值守`
+      );
+    } else {
+      consequences.push(`攻方被击退并拦截在「${placeLabel(c.place)}」，未能进入「${placeLabel(dest)}」`);
+    }
+  } else if (c.kind === "person") {
+    const disarms = (tk?.trace || []).filter(
+      e => e.type === "transfer" && e.kind === "disarm" && e.place === c.place && c.defenders.includes(e.from)
+    );
+    if (c.winner === "attackers") {
+      if (disarms.length) {
+        consequences.push(
+          disarms
+            .map(d => `迫使 ${roleInfo(d.from).display} 缴械掉落 ${d.qty} 份「${itemLabel(d.item, tk)}」至地面`)
+            .join("；")
+        );
+      } else {
+        consequences.push(`攻方压制成功`);
+      }
+    } else {
+      consequences.push(`守方成功反制击退攻方`);
+    }
+  } else if (c.kind === "items") {
+    consequences.push(
+      c.winner === "attackers"
+        ? `攻方打破物品看护，守方撤出看护岗`
+        : `守方保住屋内地面物品，攻方被击退`
+    );
+  }
+
+  const losers = c.winner === "attackers" ? c.defenders : c.attackers;
+  const disrupted = losers.filter(a => (c.damage?.[a] || 0) > 0 && tk?.people?.[a]?.alive);
+  if (disrupted.length) {
+    consequences.push(`败方本轮拾取/交付被打断`);
+  }
+
+  const dmgList = Object.entries(c.damage || {})
+    .filter(([, v]) => v > 0)
+    .map(([a, v]) => `${roleInfo(a).display} -${v}血`);
+  const escalators =
+    isLethal && (c.escalated_by || []).length
+      ? `（由 ${c.escalated_by.map(a => roleInfo(a).display).join("、")} 触发${modeLabel}）`
+      : "";
+  const casList = Object.entries(c.casualties || {})
+    .filter(([, v]) => v > 0)
+    .map(([a, v]) => `${roleInfo(a).display} -${v}人`);
+  const routList = Object.entries(c.routed || {}).map(
+    ([a, d]) => `${roleInfo(a).display} 溃退至「${placeLabel(d)}」`
+  );
   const deathList = (c.deaths || []).map(a => `${roleInfo(a).display} 阵亡/彻底溃散`);
+
   return `
     <div class="clash-strip">
-      <div class="clash-title">⚔️ ${escapeHtml(modeLabel)} · ${c.winner === "attackers" ? "攻方突破" : "守方顶住"}</div>
+      <div class="clash-title">${isLethal ? "⚔️" : "💥"} ${escapeHtml(modeLabel)} · ${outcomeBadge} · ${escapeHtml(scopeDesc)}</div>
       <div class="clash-detail">
         <div><b>攻方：</b>${escapeHtml(atk)}</div>
         <div><b>守方：</b>${escapeHtml(def)}</div>
+        <div style="margin-top:3px;"><b>结果：</b>${escapeHtml(consequences.join("；"))}${escapeHtml(escalators)}</div>
+        ${dmgList.length ? `<div style="margin-top:2px;"><b>负伤：</b>${escapeHtml(dmgList.join("；"))}</div>` : ""}
         ${casList.length ? `<div style="color:var(--blood);margin-top:3px;"><b>伤亡：</b>${escapeHtml(casList.join("；"))}</div>` : ""}
         ${routList.length ? `<div style="margin-top:2px;"><b>溃退：</b>${escapeHtml(routList.join("；"))}</div>` : ""}
         ${deathList.length ? `<div style="color:var(--blood);font-weight:700;margin-top:2px;"><b>☠️ 退场：</b>${escapeHtml(deathList.join("；"))}</div>` : ""}
@@ -731,7 +801,7 @@ function renderPov(aid, allTicks) {
           </div>
         </div>
         <div class="scene-body">
-          ${myCombats.map(renderClashStrip).join("")}
+          ${myCombats.map(c => renderClashStrip(c, tk)).join("")}
           ${incomingWhispers.map(w => `
             <div class="whisper-line" style="margin-bottom:8px;">
               <div class="whisper-meta">📩 收到 ${escapeHtml(roleInfo(w.src).display)}(@${escapeHtml(placeLabel(w.fromPl))}) 私语</div>
