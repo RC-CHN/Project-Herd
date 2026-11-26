@@ -73,13 +73,29 @@ class EconomySystem:
             )
             if blockers:
                 room.last_summary["blocked_takes"].append(dict(actor=person.id, item=chosen))
-                return f"blocked from eating room items by {len(blockers)} guards"
+                blocker_tags = self._notify_item_block(person, chosen, blockers)
+                return f"blocked from eating room items by {len(blockers)} guards ({blocker_tags})"
         adjust(room.items, chosen, -1)
         room.last_summary["taken"].append(dict(actor=person.id, item=chosen, qty=1))
         ctx.transfer("eat_room", room.id, room.id, person.id, chosen, 1)
         restore = person.eat_restore(ctx.items[chosen]["energy_restore"])
         person.energy = min(ctx.rules["max_energy"], person.energy + restore)
         return f"ate {chosen} (from room)"
+
+    def _notify_item_block(self, person, item, blockers):
+        ctx = self.ctx
+        who = f"{person.id}({person.tag})"
+        blocker_tags = "、".join(f"{g}({ctx.world.people[g].tag})" for g in blockers)
+        for guard_id in blockers:
+            guard = ctx.world.people[guard_id]
+            allow = (guard.posture.pass_rule.raw or "none") if guard.posture else "none"
+            ctx.event(
+                guard_id,
+                "notice",
+                "world",
+                f"【拦阻记录】你在本屋拦住了试图取用 {item} 的 {who}（未满足你的放行条件：{allow}）。",
+            )
+        return blocker_tags
 
     def collect(self, person, intent):
         ctx = self.ctx
@@ -102,7 +118,8 @@ class EconomySystem:
             )
             if blockers:
                 room.last_summary["blocked_takes"].append(dict(actor=person.id, item=item))
-                return f"blocked from taking items by {len(blockers)} guards"
+                blocker_tags = self._notify_item_block(person, item, blockers)
+                return f"blocked from taking items by {len(blockers)} guards ({blocker_tags})"
         stock = room.items if item in ctx.items else room.docs
         qty = min(qty, stock.get(item, 0))
         if not qty:

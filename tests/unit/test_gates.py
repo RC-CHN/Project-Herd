@@ -129,5 +129,12 @@ class GatesTests(PolityCase):
             },
         )
         self.assertEqual(w3.people["r001"].inv["ration"], 2)
-        self.assertTrue(any(e[0] == "r001" and "blocked from taking items" in e[4] for e in events3))
+        self.assertTrue(any(e[0] == "r001" and "blocked from taking items" in e[4] and "r000(" in e[4] for e in events3))
+        self.assertTrue(any(e[0] == "r002" and "blocked on path to annex" in e[4] and "r000(" in e[4] for e in events3))
+        self.assertTrue(
+            any(e[0] == "r000" and e[2] == "notice" and "拦阻记录" in e[4] and "r001(" in e[4] and "ration" in e[4] for e in events3)
+        )
+        self.assertTrue(
+            any(e[0] == "r000" and e[2] == "notice" and "拦阻记录" in e[4] and "r002(" in e[4] and "atrium→annex" in e[4] for e in events3)
+        )
         self.assertEqual(w3.people["r002"].place, "atrium")

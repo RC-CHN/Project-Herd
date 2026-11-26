@@ -192,7 +192,18 @@ class GateSystem:
         if ctx.trace is not None:
             ctx.record("move", actor=actor, **{"from": source, "to": target}, blocked_by=blocked)
         if blocked:
-            ctx.result(actor, f"blocked on path to {target} by {len(blocked)} guards")
+            who = f"{person.id}({person.tag})"
+            blocker_tags = "、".join(f"{g}({self.world.people[g].tag})" for g in blocked)
+            ctx.result(actor, f"blocked on path to {target} by {len(blocked)} guards ({blocker_tags})")
+            for guard_id in blocked:
+                guard = self.world.people[guard_id]
+                allow = (guard.posture.pass_rule.raw or "none") if guard.posture else "none"
+                ctx.event(
+                    guard_id,
+                    "notice",
+                    "world",
+                    f"【拦阻记录】你在 {source}→{target} 通道拦住了 {who}（未满足你的放行条件：{allow}）。",
+                )
             return
         person.place = target
         if (cost := ctx.rules.get("exertion_energy_cost", 0)) and (
