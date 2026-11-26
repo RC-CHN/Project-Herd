@@ -13,6 +13,7 @@ class Backend(ABC):
     workers: int | None = None
     mode: str = "json"
     max_steps: int = 6
+    preserve_reasoning: bool = False
 
     @abstractmethod
     def key(self, request):

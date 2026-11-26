@@ -137,6 +137,8 @@ def load_backends(config):
             "api_key_env",
             "mode",
             "max_steps",
+            "temperature",
+            "preserve_reasoning",
         }:
             profiles[name] = ChatAPI(name=name, **options)
         else:

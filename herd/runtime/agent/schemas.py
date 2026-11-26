@@ -57,7 +57,8 @@ INTERNAL_SCHEMAS = [
     tool("stage_speech", "Set the speech accompanying this turn's action.", {"text": TEXT}, ["text"]),
     tool(
         "stage_whisper",
-        "Set a private message for one to four residents in this room, or remotely contact known peers in your contacts when can_remote_comm is true.",
+        "Set the single private message for this turn (at most one stage_whisper per turn; put up to 4 targets in one call, "
+        "either residents in this room or known peers in your contacts when can_remote_comm is true).",
         {"targets": TARGETS, "text": TEXT},
         ["targets", "text"],
     ),

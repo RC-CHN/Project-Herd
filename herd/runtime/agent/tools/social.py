@@ -21,8 +21,13 @@ def stage_whisper(box, targets, text):
             )
     whisper_to = ",".join(targets)
     box.parse_intent({"action": "wait", "whisper_to": whisper_to, "whisper": text})
+    replaced = bool(box.social.get("whisper"))
     box.social.update(whisper_to=whisper_to, whisper=text)
-    return {"staged": "whisper", "targets": targets}
+    result = {"staged": "whisper", "targets": targets}
+    if replaced:
+        result["replaced_previous"] = True
+        result["warning"] = "每轮仅保留一条私语，已覆盖此前暂存内容；如需同轮通知多人请将最多4个编号合并写入同一条 targets。"
+    return result
 
 
 def set_roe(box, mode):

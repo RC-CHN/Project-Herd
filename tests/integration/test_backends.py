@@ -361,3 +361,45 @@ class BackendTests(unittest.TestCase):
         self.assertEqual(self.store.replay()["verified_ticks"], 1)
         for actor in self.store.world().people:
             self.assertEqual(calls[actor], 2 if actor == flaky.failed_actor else 1)
+
+    def test_chat_api_configurable_and_nullable_temperature_in_profiles(self):
+        config = {
+            "default": "t1",
+            "profiles": {
+                "t1": {
+                    "type": "api",
+                    "base_url": "http://localhost:8000/v1",
+                    "model": "kimi-like",
+                    "temperature": 1.0,
+                    "preserve_reasoning": True,
+                },
+                "tnone": {"type": "api", "base_url": "http://localhost:8000/v1", "model": "omit-temp", "temperature": None},
+            },
+        }
+        router = load_backends(config)
+        self.assertEqual(router.profiles["t1"].temperature, 1.0)
+        self.assertTrue(router.profiles["t1"].preserve_reasoning)
+        self.assertIsNone(router.profiles["tnone"].temperature)
+        self.assertFalse(router.profiles["tnone"].preserve_reasoning)
+        self.assertNotEqual(router.profiles["t1"].scope, router.profiles["tnone"].scope)
+
+        sent_bodies = []
+
+        def fake_post(url, body):
+            sent_bodies.append(body)
+            return {
+                "choices": [{"message": {"role": "assistant", "content": '{"action":"wait"}'}}],
+                "usage": {"prompt_tokens": 5, "completion_tokens": 2},
+            }
+
+        for key in ("t1", "tnone"):
+            backend = router.profiles[key]
+            with patch.object(backend, "post", side_effect=fake_post):
+                backend.chat([{"role": "user", "content": "hi"}])
+        self.assertEqual(sent_bodies[0]["temperature"], 1.0)
+        self.assertNotIn("temperature", sent_bodies[1])
+
+        with self.assertRaises(ValueError):
+            ChatAPI("http://localhost:8000/v1", "bad", temperature=3.0)
+        with self.assertRaises(ValueError):
+            ChatAPI("http://localhost:8000/v1", "bad", temperature=True)

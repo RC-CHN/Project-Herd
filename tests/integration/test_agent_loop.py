@@ -397,3 +397,47 @@ class AgentLoopTests(PolityCase):
         self.assertTrue(Simulation(store, router).step())
         self.assertEqual(store.replay()["verified_ticks"], 1)
         self.assertEqual(report(store.db)["audit"]["replay"], "passed")
+
+    def test_agent_loop_preserves_reasoning_content_and_guards_duplicate_whispers(self):
+        from herd.runtime.agent.loop import tool_message
+
+        # 1. tool_message strips reasoning_content by default and preserves it when opt-in preserve_reasoning=True.
+        msg_default, _ = tool_message({"content": "", "reasoning_content": "step-by-step", "tool_calls": []}, 1)
+        self.assertNotIn("reasoning_content", msg_default)
+        msg_with, _ = tool_message(
+            {"content": "", "reasoning_content": "step-by-step", "tool_calls": []}, 1, preserve_reasoning=True
+        )
+        self.assertEqual(msg_with["reasoning_content"], "step-by-step")
+        msg_plain, _ = tool_message({"content": "", "tool_calls": []}, 1, preserve_reasoning=True)
+        self.assertNotIn("reasoning_content", msg_plain)
+
+        # 2. Parallel duplicate stage_whisper calls bounce before committing action so recipients can be merged.
+        store = self.store(count=3)
+        seen_errors = []
+
+        def respond(actor, step, messages):
+            if step == 0:
+                return [
+                    tool_call("stage_whisper", targets=["r001"], text="msg1"),
+                    tool_call("stage_whisper", targets=["r002"], text="msg2"),
+                    tool_call("wait"),
+                ]
+            if step == 1:
+                seen_errors.append(json.loads(messages[-1]["content"]))
+                return [tool_call("stage_whisper", targets=["r001"], text="draft")]
+            # Intentional revision on a later step succeeds with replaced_previous warning.
+            return [
+                tool_call("stage_whisper", targets=["r001", "r002"], text="merged msg"),
+                tool_call("wait"),
+            ]
+
+        api = OfflineChat(respond, max_steps=4)
+        self.assertTrue(Simulation(store, route_actor(api, "r000")).step())
+        self.assertFalse(seen_errors[0]["ok"])
+        self.assertIn("stage_whisper", seen_errors[0]["error"])
+        reply, raw = store.db.execute("SELECT reply,metrics FROM turns WHERE actor='r000'").fetchone()
+        self.assertEqual(
+            Intent.parse(reply),
+            Intent("wait", whisper_to="r001,r002", whisper="merged msg"),
+        )
+        self.assertEqual(json.loads(raw)["loop_steps"], 3)

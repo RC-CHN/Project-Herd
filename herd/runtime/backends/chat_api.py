@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import math
 import os
 from urllib.error import HTTPError
 
@@ -25,6 +26,8 @@ class ChatAPI(ChatTransport, Backend):
         name="api",
         mode="agent_loop",
         max_steps=6,
+        temperature=0.3,
+        preserve_reasoning=False,
     ):
         for field, value in (
             ("base_url", base_url),
@@ -48,6 +51,19 @@ class ChatAPI(ChatTransport, Backend):
             raise ValueError("API mode must be agent_loop or json")
         _positive_int(max_steps, "max_steps")
         self.mode, self.max_steps = mode, max_steps
+        if temperature is not None:
+            if (
+                isinstance(temperature, bool)
+                or type(temperature) not in (int, float)
+                or not math.isfinite(temperature)
+                or not 0.0 <= temperature <= 2.0
+            ):
+                raise ValueError("temperature must be null or a number in [0, 2]")
+            temperature = float(temperature)
+        self.temperature = temperature
+        if not isinstance(preserve_reasoning, bool):
+            raise ValueError("preserve_reasoning must be a boolean")
+        self.preserve_reasoning = preserve_reasoning
         super().__init__(base_url, model, tokenizer_path, api_key or os.environ.get(api_key_env))
         self.max_tokens = max_tokens
         self.cache_key = cache_key
@@ -56,6 +72,8 @@ class ChatAPI(ChatTransport, Backend):
             namespace.extend([name, api_key_env])
         if mode == "agent_loop":
             namespace.append(mode)
+        if self.temperature != 0.3:
+            namespace.extend(["temperature", self.temperature])
         self.scope = hashlib.sha256(encode(namespace).encode()).hexdigest()
 
     def key(self, request):
@@ -139,10 +157,11 @@ class ChatAPI(ChatTransport, Backend):
         body = {
             "model": self.model,
             "messages": messages,
-            "temperature": 0.3,
             "max_tokens": self.max_tokens,
             "stream": False,
         }
+        if self.temperature is not None:
+            body["temperature"] = self.temperature
         if response_format is not None:
             body["response_format"] = response_format
         if tools is not None:

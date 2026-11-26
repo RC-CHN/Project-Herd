@@ -36,10 +36,15 @@ def turn_metrics(backend):
     }
 
 
-def tool_message(assistant, step):
+def tool_message(assistant, step, *, preserve_reasoning=False):
     """Ensure each response can refer to its assistant call and strip non-standard fields."""
     content = assistant.get("content")
     message = {"role": "assistant", "content": content if isinstance(content, str) else ""}
+    # Opt-in for thinking models (e.g., Kimi/DeepSeek-R1) that require reasoning_content inside a turn's tool loop.
+    if preserve_reasoning:
+        reasoning = assistant.get("reasoning_content")
+        if isinstance(reasoning, str) and reasoning:
+            message["reasoning_content"] = reasoning
     raw_calls = assistant.get("tool_calls") or []
     if not isinstance(raw_calls, list):
         raw_calls = [raw_calls]
@@ -102,7 +107,9 @@ class AgentLoop:
             assistant, usage = self.backend.chat(list(messages), tools=TOOL_SCHEMAS)
             add_usage(metrics, usage)
             metrics["loop_steps"] = step
-            assistant, calls = tool_message(assistant, step)
+            assistant, calls = tool_message(
+                assistant, step, preserve_reasoning=getattr(self.backend, "preserve_reasoning", False)
+            )
             messages.append(assistant)
             if not calls:
                 prompt = f"请调用工具查询信息或提交本轮行动（剩余步数：{remaining}）。"
@@ -114,6 +121,21 @@ class AgentLoop:
             if len(action_indices) > 1:
                 error = with_budget(
                     {"ok": False, "error": "choose at most one world action per turn"},
+                    remaining,
+                )
+                for call in calls:
+                    messages.append({"role": "tool", "tool_call_id": call["id"], "content": encode(error)})
+                continue
+            whisper_indices = [i for i, call in enumerate(calls) if call["function"]["name"] == "stage_whisper"]
+            if len(whisper_indices) > 1 and remaining > 0:
+                error = with_budget(
+                    {
+                        "ok": False,
+                        "error": (
+                            "at most one stage_whisper per turn (up to 4 targets in a single call); "
+                            "merge recipients into one stage_whisper or save others for next turn"
+                        ),
+                    },
                     remaining,
                 )
                 for call in calls:
