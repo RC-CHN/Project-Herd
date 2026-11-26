@@ -93,9 +93,9 @@ ACTION_SCHEMAS = [
     ),
     tool(
         "force",
-        "Lethal physical/armed assault to break past path:<adjacent place>, seize guarded floor items (target='items'), "
-        "or attack person:<other local id>. NOT a casual move: causes severe injury or death, disrupts same-turn "
-        "take/give if defeated, and is witnessed by everyone present. Unarmed residents fighting armed guards risk death.",
+        "【暴力武装强攻】向 path:<邻地> 封锁线、地面物品（target='items'）或 person:<同地编号> 发动暴力冲击或武装进攻——绝非和平通行、试探或口头请愿！"
+        "调用前必须先核对目标 guards.max_roe 与 lethal_armed_count：若守卫持有致命武器且处于致命档位（lethal），徒手或非致命强攻必遭致命反击并造成真实伤亡与溃散；"
+        "若只想和平请愿、交涉或等待放行，请使用 wait 配合 stage_speech，切勿调用 force。",
         {"target": ID},
         ["target"],
     ),
