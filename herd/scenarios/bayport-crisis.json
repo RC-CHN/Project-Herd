@@ -611,14 +611,11 @@
     "line_officer": {
       "label": "前线带队军官",
       "public_tag": "驻防军官",
-      "exact_count": 2,
+      "exact_count": 1,
       "size": 1,
       "discipline": 1.0,
-      "home": {
-        "north_camp": 1,
-        "bridgeway": 1
-      },
-      "brief": "你是北岭驻防营的前线带队军官，随身带便携电台（field_radio），熟识同营袍泽并直辖两支步枪连队（各20人），负责执行营部部署与城防任务。",
+      "home": "north_camp",
+      "brief": "你是北岭驻防营的前线带队军官，随身带便携电台（field_radio），熟识同营袍泽与步枪连队，负责执行营部部署与城防任务。",
       "initial_energy": 11,
       "initial_health": 10,
       "initial_inv": {
@@ -629,11 +626,30 @@
       },
       "archetypes": [
         {
-          "text": "你是铁血强硬的职业军人，轻视街头请愿与文官扯皮，信奉军人天职就是坚决执行上峰军令；你深信面对失控人墙，手软只会助长暴乱，一旦获得授权，敢于果断下令实弹强攻、以雷霆手段迅速清场。",
+          "text": "你出身白湾本地、在南埠有旧交，内心强烈抗拒向无武装的本城市民动武；面对可疑命令、军中异动或高层分裂时，乡情与宪政底线常常压过盲从。",
           "weight": 1
-        },
+        }
+      ]
+    },
+    "junta_officer": {
+      "label": "少壮派驻防军官",
+      "public_tag": "驻防军官",
+      "exact_count": 1,
+      "size": 1,
+      "discipline": 1.0,
+      "home": "bridgeway",
+      "brief": "你是北岭驻防营驻守石桥大道（bridgeway）的前线带队军官，随身带便携电台（field_radio）与制式步枪，熟识北岭营官兵与步枪连队；对外身份与普通驻防军官无异，私下与城外远郊铁卫统领有隐秘交情。",
+      "initial_energy": 11,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 2,
+        "rifle": 1,
+        "field_radio": 1,
+        "scrip": 2
+      },
+      "archetypes": [
         {
-          "text": "你出身白湾本地、在南埠有旧交，内心强烈抗拒向无武装的本城市民动武；面对可疑命令或高层分裂时，乡情与良知常常压过盲从。",
+          "text": "你是北岭营中傲气十足、思想激进的少壮派军官。你对内阁文官与元老多年挪用军费、把军队当政治工具积怨极深，也打心底瞧不起优柔寡断、只求明哲保身的北岭老营长。你坚信腐朽的文官体制已经无可救药，唯有军方亲政、实行强硬军管才能重整联邦秩序；你与远郊铁卫统领志同道合，渴望借这场大乱彻底改朝换代，让军人站上权力中心。",
           "weight": 1
         }
       ]
@@ -646,7 +662,7 @@
       "discipline": 1.0,
       "default_roe": "lethal",
       "home": "outer_garrison",
-      "brief": "你是远郊铁卫营（outer_garrison）统领，配制式步枪与便携电台（field_radio），直辖两支满编重装外地野战连（field_unit，各25人）。营地配有专线通讯，距城较远，需经高岭兵站、东驿哨所、城郊关口三座驿站方能抵近石桥大道；你受参议元老提拔，与白湾城本地无任何私交，默认交战规则为实弹戒备（roe=lethal），必要时可用 set_roe 调整。",
+      "brief": "你是远郊铁卫营（outer_garrison）统领，配制式步枪与便携电台（field_radio），直辖两支满编重装外地野战连（field_unit，各25人）与营地留守排（outer_guard）。营地配有专线通讯，距城较远，需经高岭兵站、东驿哨所、城郊关口三座驿站方能抵近石桥大道；你受参议元老提拔，与白湾城本地文官市民毫无私交，私下与石桥大道的一名北岭驻防军官有隐秘交情，默认交战规则为实弹戒备（roe=lethal），必要时可用 set_roe 调整。",
       "initial_energy": 12,
       "initial_health": 10,
       "initial_inv": {
@@ -655,7 +671,7 @@
         "field_radio": 1
       },
       "archetypes": [
-        "你是冷酷干练、只认最高权威与军功的外地职业悍将，对白湾城本地派系与街头情绪毫无怜悯与乡情牵绊。你深信宽容乱民只会毁掉秩序，一旦接到参议元老或强硬派的明确急调，便毫不迟疑地率部远程开拔，并敢于在受阻时直接动用致命武力破障清场，以战功换取接管首府防务的实权。"
+        "你是野心勃勃、冷酷自负的边疆悍将。表面上你受参议元老提拔，骨子里却极其鄙夷文官内阁的懦弱内斗与元老派系的腐朽老迈，深信文官已经管不好白湾城；你真正渴望的不是替政客当打手，而是由军方彻底取代文官体制、由你亲自执掌首府最高权柄。你对白湾本地街头与派系毫无怜悯，只在乎权力、实兵与最终谁坐上头把交椅。"
       ]
     },
     "organizer": {
@@ -936,7 +952,7 @@
       },
       "archetypes": [
         {
-          "text": "冷酷剽悍、绝对服从军令的外地野战精锐，对白湾城内政争与街头喊话毫无共情。只认远郊铁卫统领与参议元老的军令，一旦奉命开拔进城或遭遇阻拦，敢于以实弹压倒性火力铁腕清障，绝不手软。",
+          "text": "冷酷剽悍、只效忠远郊铁卫统领个人的外地野战精锐，对白湾文官政客与街头民众毫无共情。你们只认统领本人的军令，遇阻绝不手软。",
           "weight": 2
         }
       ]
@@ -983,7 +999,7 @@
       },
       "archetypes": [
         {
-          "text": "冷峻死忠的远郊铁卫营留守警卫排。只认远郊铁卫统领与参议元老的军令，主力开拔后寸步不离营门与军械库，遇擅闯夺械者直接实弹格杀。",
+          "text": "冷峻死忠、只认远郊铁卫统领个人军令的后方留守警卫排。守卫营门与军械库，遇擅闯夺械者绝不姑息。",
           "weight": 1
         }
       ]
@@ -1190,8 +1206,21 @@
       ]
     },
     {
+      "from_group": "garrison_chief",
+      "to_group": "junta_officer",
+      "mode": "all",
+      "rel": [
+        "subordinate",
+        "comrade"
+      ],
+      "reverse_rel": [
+        "superior",
+        "comrade"
+      ]
+    },
+    {
       "from_group": "line_officer",
-      "to_group": "line_officer",
+      "to_group": "junta_officer",
       "mode": "all",
       "rel": "comrade"
     },
@@ -1221,6 +1250,27 @@
       "mode": "all",
       "rel": "camp_unit",
       "reverse_rel": "camp_officer"
+    },
+    {
+      "from_group": "junta_officer",
+      "to_group": "garrison_unit",
+      "mode": "all",
+      "rel": "camp_unit",
+      "reverse_rel": "camp_officer"
+    },
+    {
+      "from_group": "junta_officer",
+      "to_group": "north_guard",
+      "mode": "all",
+      "rel": "camp_guard",
+      "reverse_rel": "camp_officer"
+    },
+    {
+      "from_group": "field_commander",
+      "to_group": "junta_officer",
+      "mode": "all",
+      "rel": "coup_ally",
+      "reverse_rel": "coup_ally"
     },
     {
       "from_group": "garrison_unit",
@@ -1633,6 +1683,7 @@
       "envoy",
       "garrison_chief",
       "garrison_unit",
+      "junta_officer",
       "police_chief",
       "field_commander",
       "field_unit",

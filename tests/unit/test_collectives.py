@@ -255,7 +255,8 @@ class CollectivesTests(PolityCase):
                 inner_guard=1,
                 envoy=2,
                 garrison_chief=1,
-                line_officer=2,
+                line_officer=1,
+                junta_officer=1,
                 field_commander=1,
                 police_chief=1,
                 police_guard=1,
@@ -333,9 +334,13 @@ class CollectivesTests(PolityCase):
         outer_units = [p for p in w.people.values() if p.role == "field_unit"]
         self.assertEqual(outer_cmd.roe, "lethal")
         self.assertTrue(all(u.roe == "lethal" and u.size == 25 for u in outer_units))
+        junta = next(p for p in w.people.values() if p.role == "junta_officer")
+        self.assertEqual((junta.place, junta.tag), ("bridgeway", "驻防军官"))
+        self.assertIn(junta.id, outer_cmd.relations)
+        self.assertEqual(outer_cmd.rels_for(junta.id), ["coup_ally"])
         self.assertTrue(
             all(
-                w.people[cid].role in ("councilor", "hardliner", "field_unit", "outer_guard")
+                w.people[cid].role in ("councilor", "hardliner", "field_unit", "outer_guard", "junta_officer")
                 for cid in outer_cmd.relations
             )
         )
