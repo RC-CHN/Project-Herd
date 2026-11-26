@@ -154,6 +154,7 @@ async function loadMeta(resetSelection = false) {
   app.meta = meta;
   app.layout = computeLayout(meta.places);
   $("scenarioTitle").textContent = meta.title;
+  const newTicks = meta.committed_ticks > prevCommitted;
   if (resetSelection) {
     app.tickCache.clear();
     app.allTicks = null;
@@ -163,15 +164,44 @@ async function loadMeta(resetSelection = false) {
     app.spotlightPlace = null;
     const individuals = Object.values(meta.roles).filter(r => r.initial_size === 1);
     app.povActor = (individuals[0] || Object.values(meta.roles)[0])?.id || null;
-  } else if (meta.committed_ticks > prevCommitted) {
-    app.allTicks = null;
-    if (app.liveFollow) {
-      app.tickIdx = Math.max(0, meta.committed_ticks - 1);
-      app.spotlightPlace = null;
-    }
+    updateLiveFooter();
+    updateLiveBtn();
+    await renderCurrent({ preserveScroll: false });
+    return;
   }
   updateLiveFooter();
-  await renderCurrent();
+  if (!newTicks) {
+    // Only staging progress changed; never rebuild story DOM or disturb scroll position.
+    if (meta.committed_ticks === 0) {
+      const openingPill = document.querySelector("#storyScroll .meta-pill");
+      if (openingPill) {
+        openingPill.textContent = `第 0 幕正在演算（${meta.staged}/${meta.alive}），首幕落盘后将自动呈现`;
+      }
+    }
+    return;
+  }
+  app.allTicks = null;
+  if (app.liveFollow) {
+    const scroller = $("storyScroll");
+    const readingMidPage = scroller && scroller.scrollTop > 60;
+    if (app.mode === "pov") {
+      app.tickIdx = Math.max(0, meta.committed_ticks - 1);
+      updateLiveBtn();
+      await renderCurrent({ preserveScroll: true });
+    } else if (prevCommitted <= 0 || !readingMidPage) {
+      app.tickIdx = Math.max(0, meta.committed_ticks - 1);
+      app.spotlightPlace = null;
+      updateLiveBtn();
+      await renderCurrent({ preserveScroll: false });
+    } else {
+      // User is scrolled down reading the current tick: keep their place & notify on the Live button.
+      renderFilmstrip();
+      updateLiveBtn();
+    }
+  } else {
+    renderFilmstrip();
+    updateLiveBtn();
+  }
 }
 
 async function getTick(idx) {
@@ -351,8 +381,10 @@ function buildScenes(tk) {
 }
 
 /* ---------------- RENDERERS ---------------- */
-async function renderCurrent() {
+async function renderCurrent({ preserveScroll = true } = {}) {
   if (!app.meta) return;
+  const scroller = $("storyScroll");
+  const prevScroll = scroller ? scroller.scrollTop : 0;
   const tk = await getTick(app.tickIdx);
   $("eraSubtitle").textContent = tk.opening
     ? `开局待演 · 第 1 日 ${todLabel(tk.time_of_day)}（第 0 幕演算中）`
@@ -375,8 +407,10 @@ async function renderCurrent() {
     const allTicks = await getAllTicks();
     renderPov(app.povActor, allTicks);
   }
+  if (scroller) scroller.scrollTop = preserveScroll ? prevScroll : 0;
   renderFilmstrip();
   renderLabDrawer(tk);
+  updateLiveBtn();
 }
 
 function renderStageMap(tk, scenes) {
@@ -743,7 +777,7 @@ function renderFilmstrip() {
       app.spotlightPlace = null;
       app.liveFollow = (app.tickIdx === summaries.length - 1);
       updateLiveBtn();
-      renderCurrent();
+      renderCurrent({ preserveScroll: false });
     };
   });
   const activeChip = $("stripTicks").querySelector(".tick-chip.active");
@@ -821,21 +855,37 @@ function renderLabDrawer(tk) {
 }
 
 function updateLiveBtn() {
-  $("liveBtn").classList.toggle("live-on", app.liveFollow);
+  const btn = $("liveBtn");
+  btn.classList.toggle("live-on", app.liveFollow);
+  const latestIdx = app.meta ? Math.max(0, app.meta.committed_ticks - 1) : 0;
+  if (app.liveFollow && app.meta && app.meta.committed_ticks > 0 && app.tickIdx < latestIdx) {
+    btn.textContent = `🔴 新幕 T${latestIdx} · 点击跳转`;
+  } else {
+    btn.textContent = app.liveFollow ? "🔴 实时追更" : "⚪ 已暂停追更";
+  }
 }
 
 /* ---------------- WIRE CONTROLS ---------------- */
 $("runSel").onchange = e => { app.runName = e.target.value; loadMeta(true); };
 $("themeSel").onchange = e => applyTheme(e.target.value, true);
-$("modeChronicle").onclick = () => { app.mode = "chronicle"; renderCurrent(); };
-$("modePov").onclick = () => { app.mode = "pov"; renderCurrent(); };
-$("fogBtn").onclick = () => { app.fogMode = !app.fogMode; renderCurrent(); };
+$("modeChronicle").onclick = () => { app.mode = "chronicle"; renderCurrent({ preserveScroll: false }); };
+$("modePov").onclick = () => { app.mode = "pov"; renderCurrent({ preserveScroll: false }); };
+$("fogBtn").onclick = () => { app.fogMode = !app.fogMode; renderCurrent({ preserveScroll: true }); };
 $("liveBtn").onclick = () => {
+  const latestIdx = app.meta ? Math.max(0, app.meta.committed_ticks - 1) : 0;
+  if (app.liveFollow && app.meta && app.tickIdx < latestIdx) {
+    // Jump directly to the newly arrived tick without toggling liveFollow off.
+    app.tickIdx = latestIdx;
+    app.spotlightPlace = null;
+    renderCurrent({ preserveScroll: false });
+    return;
+  }
   app.liveFollow = !app.liveFollow;
   updateLiveBtn();
   if (app.liveFollow && app.meta) {
-    app.tickIdx = Math.max(0, app.meta.committed_ticks - 1);
-    renderCurrent();
+    app.tickIdx = latestIdx;
+    app.spotlightPlace = null;
+    renderCurrent({ preserveScroll: false });
   }
 };
 $("labToggle").onclick = () => { app.labOpen = !app.labOpen; $("labDrawer").classList.toggle("open", app.labOpen); };
@@ -845,13 +895,13 @@ $("btnPrev").onclick = () => {
   app.liveFollow = false;
   app.spotlightPlace = null;
   updateLiveBtn();
-  renderCurrent();
+  renderCurrent({ preserveScroll: false });
 };
 $("btnNext").onclick = () => {
   const maxIdx = Math.max(0, (app.meta?.committed_ticks || 1) - 1);
   app.tickIdx = Math.min(maxIdx, app.tickIdx + 1);
   app.spotlightPlace = null;
-  renderCurrent();
+  renderCurrent({ preserveScroll: false });
 };
 $("btnPlay").onclick = () => {
   app.playing = !app.playing;
