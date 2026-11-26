@@ -254,10 +254,16 @@ class SandboxRuntimeTest(unittest.TestCase):
         sim = Simulation(store, Scripted(), window=0, keep=2, context_bytes=180000)
         agent = sim.agents[0]
         req0 = agent.prepare(store, store.world(), 0, 2, 180000, mode="agent_loop")
+        other = sim.agents[-1].prepare(store, store.world(), 0, 2, 180000, mode="agent_loop")
+        # All residents share 100% identical system prompts in agent_loop mode for maximum KV sharing.
+        self.assertEqual(req0.messages[0], other.messages[0])
         sys_text = req0.messages[0]["content"]
         self.assertIn("force_modes=", sys_text)
         self.assertIn("item_catalog=", sys_text)
-        first_user_payload = json.loads(req0.messages[1]["content"].split("\n", 1)[1])
+        first_id_line, first_frame_line = req0.messages[1]["content"].split("\n", 1)
+        self.assertIn("role_brief", json.loads(first_id_line))
+        self.assertIn("identity", json.loads(first_id_line))
+        first_user_payload = json.loads(first_frame_line)
         self.assertNotIn("force_modes", first_user_payload["view"])
         self.assertNotIn("item_info", first_user_payload["view"])
         for peer in first_user_payload["view"].get("near", []):

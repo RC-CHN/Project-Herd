@@ -72,9 +72,10 @@ def format_static_catalog(spec, energy_decay=None):
         f"force_modes={encode(modes)}；"
         f"item_catalog={encode(items)}。\n"
         "帧压缩约定：每轮仅列出变动或非默认字段——"
-        "near/others_in_room 中未列出的布尔字段均为 false、未列出的 rels 为空；"
-        "contacts/notes 未变化时沿用前文最近一次给出值；"
-        "已见过的文书在后续帧仅列编号与最新联署/印章，全文随时可用 read_document 查阅。"
+        "near/others_in_room/guards 中未列出的布尔字段均为 false、未列出的列表或计数为空/0；"
+        "contacts/notes/guards/near/others_in_room 未变化时沿用前文最近一次给出值；"
+        "已出现过的角色后续帧省略重复 tag，已见过的文书后续帧仅列编号与最新联署/印章（全文随时用 read_document 查）；"
+        "events 默认属于上一幕（tick-1）且省略你上一轮自己已发出的私语/笔记/发言回显。"
     )
 
 
@@ -223,10 +224,31 @@ OMIT_IF_EMPTY_VIEW_KEYS = (
 )
 
 
-def _compact_peer(peer):
+def _compact_peer(peer, seen_tags=None):
     if not isinstance(peer, dict):
         return peer
-    return {k: v for k, v in peer.items() if v is not False and v != []}
+    out = {k: v for k, v in peer.items() if v is not False and v != []}
+    pid = out.get("id")
+    if seen_tags is not None and pid is not None:
+        if pid in seen_tags:
+            out.pop("tag", None)
+        elif "tag" in out:
+            seen_tags.add(pid)
+    return out
+
+
+def _compact_guard(entry):
+    if not isinstance(entry, dict):
+        return entry
+    return {
+        k: v
+        for k, v in entry.items()
+        if not (
+            (k == "admitted" and v is False)
+            or (k == "lethal_armed_count" and v == 0)
+            or (k == "blocked_by" and v == [])
+        )
+    }
 
 
 def compact_frame_for_loop(
@@ -237,6 +259,8 @@ def compact_frame_for_loop(
     static_energy_decay=None,
     prev_frame=None,
     seen_docs=None,
+    seen_tags=None,
+    actor_id=None,
 ):
     """Slim agent_loop frames deterministically while keeping prefix append-only and lossless."""
     view = frame.get("view")
@@ -259,16 +283,24 @@ def compact_frame_for_loop(
         if isinstance(paths, dict):
             compact_view["paths"] = list(paths.keys())
 
+    prev_view = prev_frame.get("view") if isinstance(prev_frame, dict) else None
     for key in ("near", "others_in_room"):
+        if isinstance(prev_view, dict) and compact_view.get(key) == prev_view.get(key):
+            compact_view.pop(key, None)
+            continue
         entries = compact_view.get(key)
         if isinstance(entries, list) and entries:
-            compact_view[key] = [_compact_peer(entry) for entry in entries]
+            compact_view[key] = [_compact_peer(entry, seen_tags) for entry in entries]
 
-    prev_view = prev_frame.get("view") if isinstance(prev_frame, dict) else None
     if isinstance(prev_view, dict) and compact_view.get("contacts") == prev_view.get("contacts"):
         compact_view.pop("contacts", None)
     elif isinstance(compact_view.get("contacts"), list):
-        compact_view["contacts"] = [_compact_peer(c) for c in compact_view["contacts"]]
+        compact_view["contacts"] = [_compact_peer(c, seen_tags) for c in compact_view["contacts"]]
+
+    if isinstance(prev_view, dict) and compact_view.get("guards") == prev_view.get("guards"):
+        compact_view.pop("guards", None)
+    elif isinstance(compact_view.get("guards"), list) and compact_view["guards"]:
+        compact_view["guards"] = [_compact_guard(g) for g in compact_view["guards"]]
 
     for key in ("docs", "room_docs", "board"):
         entries = compact_view.get(key)
@@ -318,8 +350,28 @@ def compact_frame_for_loop(
             compact_view.pop(key, None)
 
     out = {"view": compact_view}
-    if frame.get("events"):
-        out["events"] = frame["events"]
+    events = frame.get("events")
+    if events:
+        prev_tick = view.get("tick", 0) - 1 if isinstance(view.get("tick"), int) else None
+        slim_events = []
+        for ev in events:
+            if not isinstance(ev, dict):
+                slim_events.append(ev)
+                continue
+            # When the previous turn's tool_calls sit immediately above in this context window,
+            # omit redundant self-echo events already present in the preceding assistant turn.
+            if prev_frame is not None and actor_id is not None:
+                kind = ev.get("kind")
+                if kind in ("private_note", "whisper_sent") or (
+                    kind == "speech" and ev.get("source") == actor_id
+                ):
+                    continue
+            if prev_tick is not None and ev.get("tick") == prev_tick:
+                slim_events.append({k: v for k, v in ev.items() if k != "tick"})
+            else:
+                slim_events.append(ev)
+        if slim_events:
+            out["events"] = slim_events
     notes = frame.get("notes")
     prev_notes = prev_frame.get("notes") if isinstance(prev_frame, dict) else None
     if prev_frame is not None:
@@ -415,21 +467,21 @@ class ResidentAgent:
         if mode == "agent_loop":
             rules = (
                 "依据自己的局部观察和已送达的信息行动。开局帧已包含当前房间概况、公墙目录与你的私人笔记，"
-                "仅在需要核实文书全文、回忆某人过往或搜索线索时再调用查询工具。"
-                "你可以在同一步并行调用 write_note、stage_speech、stage_whisper、set_roe 和唯一的世界行动提交工具；"
+                "无需重复调用 inspect_room 或 read_notes；仅在需要核实文书全文、回忆某人过往或搜索旧线索时再调用查询工具。"
+                "无需查询时请在第 1 步直接并行调用 write_note、stage_speech、stage_whisper、set_roe 与唯一的世界行动提交工具一次完成；"
                 "每轮步数有限（工具返回会提示 remaining_steps），查清关键信息后请果断提交唯一的世界行动。"
                 "工具报错时可更正参数重试。历史对话中的工具调用记录是往轮已提交的决定。\n" + WORLD_RULES
             )
             static_items = frozenset(spec["items"].keys())
             static_energy_decay = world.energy_decay
+            # Keep the entire system message 100% identical across all residents so every
+            # actor shares one hot system KV prefix; per-resident role/persona live in messages[1].
             system_parts = (
                 rules,
                 spec["briefing"],
                 format_map(spec),
                 format_static_catalog(spec, world.energy_decay),
                 SPOKEN_STYLE_GUIDE,
-                group["brief"],
-                identity_block(person, self.persona),
             )
         else:
             system_parts = (
@@ -446,12 +498,21 @@ class ResidentAgent:
         folding_history = False
         target_bytes = int(byte_budget * fold_target)
         while True:
-            # A full system message stays hot across residents with the same archetype
-            # and across compression. Place the changing digest in the first user turn.
-            identity = {"id": self.actor, "older_observations": digest}
+            # A full system message stays hot across all residents and across compression.
+            # Place per-resident identity and the changing digest in the first user turn.
+            if mode == "agent_loop":
+                identity = {
+                    "id": self.actor,
+                    "role_brief": group["brief"],
+                    "identity": identity_block(person, self.persona),
+                    "older_observations": digest,
+                }
+            else:
+                identity = {"id": self.actor, "older_observations": digest}
             messages = [message("system", system_prompt)]
             if mode == "agent_loop":
                 seen_docs = set()
+                seen_tags = set()
                 prev_frame = None
                 for turn, raw_frame in zip(history, parsed_history):
                     user_text = encode(
@@ -461,6 +522,8 @@ class ResidentAgent:
                             static_energy_decay=static_energy_decay,
                             prev_frame=prev_frame,
                             seen_docs=seen_docs,
+                            seen_tags=seen_tags,
+                            actor_id=self.actor,
                         )
                     )
                     messages.append(message("user", user_text))
@@ -472,6 +535,8 @@ class ResidentAgent:
                     static_energy_decay=static_energy_decay,
                     prev_frame=prev_frame,
                     seen_docs=seen_docs,
+                    seen_tags=seen_tags,
+                    actor_id=self.actor,
                 )
                 messages.append(message("user", encode(current_frame)))
             else:
