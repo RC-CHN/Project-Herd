@@ -54,12 +54,21 @@ INTERNAL_SCHEMAS = [
     tool("read_notes", "Read your private notes, including changes staged this turn."),
     tool("write_note", "Write or replace a private note.", {"key": KEY, "text": NOTE}, ["key", "text"]),
     tool("delete_note", "Delete a private note.", {"key": KEY}, ["key"]),
-    tool("stage_speech", "Set the speech accompanying this turn's action.", {"text": TEXT}, ["text"]),
+    tool(
+        "stage_speech",
+        "你此刻当面张嘴说出的公开发言。必须是现场录音式的1~3句现代日常大白话（15~65字），自然有情绪、不工整不对仗；"
+        "严禁列123条陈、破折号、分号、金句排比与文言/戏台/公文腔。",
+        {"text": dict(TEXT, description="15~65字现代日常大白话，像真人当面脱口而出，禁列点/破折号/分号/对仗金句/戏腔。")},
+        ["text"],
+    ),
     tool(
         "stage_whisper",
-        "Set the single private message for this turn (at most one stage_whisper per turn; put up to 4 targets in one call, "
-        "either residents in this room or known peers in your contacts when can_remote_comm is true).",
-        {"targets": TARGETS, "text": TEXT},
+        "本轮唯一一条私下口信（单次最多4个目标，同屋或 can_remote_comm 为真时可发给 contacts 熟人）。"
+        "必须是1~3句简短自然的私下现代大白话（15~65字），像凑耳边叮嘱或电台短呼；严禁分点汇报、破折号、分号与戏腔。",
+        {
+            "targets": TARGETS,
+            "text": dict(TEXT, description="15~65字私下现代大白话口信，简短直白，禁列点/破折号/分号/对仗/戏腔。"),
+        },
         ["targets", "text"],
     ),
     tool(

@@ -28,6 +28,7 @@ class ChatAPI(ChatTransport, Backend):
         mode="agent_loop",
         max_steps=6,
         temperature=0.3,
+        frequency_penalty=None,
         preserve_reasoning=False,
     ):
         for field, value in (
@@ -64,6 +65,16 @@ class ChatAPI(ChatTransport, Backend):
                 raise ValueError("temperature must be null or a number in [0, 2]")
             temperature = float(temperature)
         self.temperature = temperature
+        if frequency_penalty is not None:
+            if (
+                isinstance(frequency_penalty, bool)
+                or type(frequency_penalty) not in (int, float)
+                or not math.isfinite(frequency_penalty)
+                or not -2.0 <= frequency_penalty <= 2.0
+            ):
+                raise ValueError("frequency_penalty must be null or a number in [-2, 2]")
+            frequency_penalty = float(frequency_penalty)
+        self.frequency_penalty = frequency_penalty
         if not isinstance(preserve_reasoning, bool):
             raise ValueError("preserve_reasoning must be a boolean")
         self.preserve_reasoning = preserve_reasoning
@@ -77,6 +88,8 @@ class ChatAPI(ChatTransport, Backend):
             namespace.append(mode)
         if self.temperature != 0.3:
             namespace.extend(["temperature", self.temperature])
+        if self.frequency_penalty is not None:
+            namespace.extend(["frequency_penalty", self.frequency_penalty])
         self.scope = hashlib.sha256(encode(namespace).encode()).hexdigest()
 
     def key(self, request):
@@ -165,6 +178,8 @@ class ChatAPI(ChatTransport, Backend):
         }
         if self.temperature is not None:
             body["temperature"] = self.temperature
+        if self.frequency_penalty is not None:
+            body["frequency_penalty"] = self.frequency_penalty
         if response_format is not None:
             body["response_format"] = response_format
         if tools is not None:

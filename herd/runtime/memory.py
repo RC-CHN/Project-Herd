@@ -19,6 +19,17 @@ class Request:
     local: dict = field(default_factory=dict)
 
 
+SPOKEN_STYLE_GUIDE = (
+    "【自然口语铁律】公开发言（stage_speech）和私语（stage_whisper）必须是“现场录音转文字”般的现代日常大白话，不是写报告、背台词或演话剧：\n"
+    '- 坏示范（禁止）："诸位，三件事请记下：一、核验、登记、留存，缺一不可；二、本队即行封门——账目一日不开，信用一日不解。"\n'
+    '- 好示范（像活人）："大伙先别急，先把眼前这事弄清楚再说。东西我先看着，谁也别乱抢，有动静马上跟我讲一声。"\n'
+    "- 短促直白：每次控制在1~3句、15~65字，只讲眼下最急的一两层意思，不求面面俱到、首尾呼应。\n"
+    "- 彻底去书面腔与戏腔：禁止“一、二、三/①②③”列条，禁止破折号“——”、分号“；”、冒号总起分点，禁止工整对仗和装酷金句，少用连串顿号，禁止“本席、本队、本报、诸位、切勿、即行、何在”等文言或话剧腔。\n"
+    "- 身份语气拉开：普通民众粗直接地气，高位决策者冷硬简短但不拽文，一线人员干脆利落；称呼用“大伙、老哥、长官、兄弟、那位”，尽量别满嘴喊角色编号。\n"
+    "- 哪怕前文有人说得很文绉绉，你也坚持说松弛自然的现代大白话；只有写正式文书（write_document）时才用书面体。"
+)
+
+
 def format_map(spec):
     places = spec["places"]
     entries = []
@@ -416,6 +427,7 @@ class ResidentAgent:
                 spec["briefing"],
                 format_map(spec),
                 format_static_catalog(spec, world.energy_decay),
+                SPOKEN_STYLE_GUIDE,
                 group["brief"],
                 identity_block(person, self.persona),
             )

@@ -371,6 +371,7 @@ class BackendTests(unittest.TestCase):
                     "base_url": "http://localhost:8000/v1",
                     "model": "kimi-like",
                     "temperature": 1.0,
+                    "frequency_penalty": 0.3,
                     "preserve_reasoning": True,
                 },
                 "tnone": {"type": "api", "base_url": "http://localhost:8000/v1", "model": "omit-temp", "temperature": None},
@@ -378,8 +379,10 @@ class BackendTests(unittest.TestCase):
         }
         router = load_backends(config)
         self.assertEqual(router.profiles["t1"].temperature, 1.0)
+        self.assertEqual(router.profiles["t1"].frequency_penalty, 0.3)
         self.assertTrue(router.profiles["t1"].preserve_reasoning)
         self.assertIsNone(router.profiles["tnone"].temperature)
+        self.assertIsNone(router.profiles["tnone"].frequency_penalty)
         self.assertFalse(router.profiles["tnone"].preserve_reasoning)
         self.assertNotEqual(router.profiles["t1"].scope, router.profiles["tnone"].scope)
 
@@ -397,12 +400,18 @@ class BackendTests(unittest.TestCase):
             with patch.object(backend, "post", side_effect=fake_post):
                 backend.chat([{"role": "user", "content": "hi"}])
         self.assertEqual(sent_bodies[0]["temperature"], 1.0)
+        self.assertEqual(sent_bodies[0]["frequency_penalty"], 0.3)
         self.assertNotIn("temperature", sent_bodies[1])
+        self.assertNotIn("frequency_penalty", sent_bodies[1])
 
         with self.assertRaises(ValueError):
             ChatAPI("http://localhost:8000/v1", "bad", temperature=3.0)
         with self.assertRaises(ValueError):
             ChatAPI("http://localhost:8000/v1", "bad", temperature=True)
+        with self.assertRaises(ValueError):
+            ChatAPI("http://localhost:8000/v1", "bad", frequency_penalty=2.5)
+        with self.assertRaises(ValueError):
+            ChatAPI("http://localhost:8000/v1", "bad", frequency_penalty=True)
 
     def test_per_backend_context_bytes_validation_and_override(self):
         config = {
