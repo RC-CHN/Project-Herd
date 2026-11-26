@@ -317,23 +317,23 @@ class CollectivesTests(PolityCase):
         self.assertEqual(spec["places"]["highland_post"]["paths"], ["east_relay", "outer_garrison"])
         self.assertEqual(spec["places"]["east_relay"]["paths"], ["outer_gate", "highland_post"])
         self.assertEqual(spec["places"]["outer_gate"]["paths"], ["bridgeway", "east_relay"])
-        # Dedicated 1x8 lethal inner_guard at inner_gate holds off massive unarmed crowds (278 people) while yielding to regular troops.
+        # Dedicated 1x8 inner_guard starts in restrained push ROE; when escalated to lethal, holds off massive unarmed crowds while yielding to regular troops.
         from herd.systems.gates import GateSystem
         gs = GateSystem(w)
         lethal_mode = spec["rules"]["force_modes"]["lethal"]
         ig = next(p for p in w.people.values() if p.role == "inner_guard")
-        self.assertEqual((ig.size, ig.roe, ig.place), (8, "lethal", "inner_gate"))
+        self.assertEqual((ig.size, ig.roe, ig.place), (8, "push", "inner_gate"))
         all_students = [p.id for p in w.people.values() if p.role == "student_bloc"]
         six_crowds = [p.id for p in w.people.values() if p.role == "civic_crowd"][:6]
         self.assertGreater(
             gs.team_strength([ig.id], terrain=True, mode_spec=lethal_mode),
             gs.team_strength(all_students + six_crowds, mode_spec=lethal_mode),
         )
-        # Outer corps starts lethal with zero ties to Bayport civilians.
+        # Outer corps starts restrained (push) with rifles ready and zero ties to Bayport civilians, linked covertly to junta_officer.
         outer_cmd = next(p for p in w.people.values() if p.role == "field_commander")
         outer_units = [p for p in w.people.values() if p.role == "field_unit"]
-        self.assertEqual(outer_cmd.roe, "lethal")
-        self.assertTrue(all(u.roe == "lethal" and u.size == 25 for u in outer_units))
+        self.assertEqual(outer_cmd.roe, "push")
+        self.assertTrue(all(u.roe == "push" and u.size == 25 and u.inv.get("rifle") for u in outer_units))
         junta = next(p for p in w.people.values() if p.role == "junta_officer")
         self.assertEqual((junta.place, junta.tag), ("bridgeway", "驻防军官"))
         self.assertIn(junta.id, outer_cmd.relations)
@@ -620,11 +620,11 @@ class CollectivesTests(PolityCase):
         self.assertAlmostEqual(s_four, s_one, places=6)
         crowds[0].size = 25
 
-        # 2. Persistent ROE defaults: garrison_unit starts at push, praetorian starts at lethal.
+        # 2. Persistent ROE defaults: both garrison_unit and praetorian start restrained at push (lethal is explicit escalation).
         unit = next(p for p in w.people.values() if p.role == "garrison_unit")
         praet = next(p for p in w.people.values() if p.role == "praetorian")
         self.assertEqual(unit.roe, "push")
-        self.assertEqual(praet.roe, "lethal")
+        self.assertEqual(praet.roe, "push")
         self.assertIn("push", w.observe(unit.id)["force_modes"])
         self.assertIn("lethal", w.observe(unit.id)["force_modes"])
 
@@ -748,8 +748,8 @@ class CollectivesTests(PolityCase):
         conc.inv.clear()
         praet.inv = {"rifle": 1}
 
-        # 1. Lethal kill in hall creates a regular dynamic item (kind="remains") on hall's floor & alerts adjacent inner_gate!
-        ev0 = turn(w, {praet.id: Intent("force", f"person:{conc.id}"), conc.id: Intent("wait")})
+        # 1. Explicit lethal escalation in hall creates a regular dynamic item (kind="remains") on hall's floor & alerts adjacent inner_gate!
+        ev0 = turn(w, {praet.id: Intent("force", f"person:{conc.id}", roe="lethal"), conc.id: Intent("wait")})
         self.assertFalse(conc.is_alive)
         body_id = f"body_{conc.id}"
         self.assertIn(body_id, w.dynamic_items)

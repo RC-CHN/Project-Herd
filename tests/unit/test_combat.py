@@ -328,10 +328,10 @@ class CombatTests(PolityCase):
         self.assertEqual(sum(clash["casualties"].values()), 0)
         self.assertFalse(any(e[2] == "notice" and "邻室动静" in e[4] for e in events))
 
-        # Meanwhile rifle-armed inner_guard at inner_gate exposes lethal_armed_count=1, max_roe=lethal and triggers real lethal fire!
+        # Meanwhile rifle-armed inner_guard at inner_gate exposes lethal_armed_count=1, max_roe=lethal once escalated and triggers real lethal fire!
         crowd.place = "antechamber"
         crowd.health = 10
-        turn(w, {ig.id: Intent("guard", "path:antechamber", "none")})
+        turn(w, {ig.id: Intent("guard", "path:antechamber", "none", roe="lethal")})
         gate_view = w.observe(crowd.id)["guards"]["paths"]["inner_gate"]
         self.assertEqual(gate_view["armed_count"], 1)
         self.assertEqual(gate_view["lethal_armed_count"], 1)

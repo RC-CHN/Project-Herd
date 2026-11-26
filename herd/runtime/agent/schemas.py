@@ -79,7 +79,10 @@ INTERNAL_SCHEMAS = [
     ),
 ]
 ACTION_SCHEMAS = [
-    tool("wait", "Submit an action to wait in this room."),
+    tool(
+        "wait",
+        "原地停留、静坐抗议、当场喊话交涉、观望待命或和平施压（不打算真正动武打架时默认调用此工具，可同一步并行调用 stage_speech / stage_whisper）。",
+    ),
     tool("eat", "Submit an action to eat one edible item from your inventory or unguarded room stock.", {"item": ID}),
     tool("produce", "Use the local facility. At a press, target is a document you hold.", {"target": ID}),
     tool("take", "Pick up an item or document from the room.", {"item": ID, "qty": QTY}, ["item"]),
@@ -102,10 +105,14 @@ ACTION_SCHEMAS = [
     ),
     tool(
         "force",
-        "【暴力武装强攻】向 path:<邻地> 封锁线、地面物品（target='items'）或 person:<同地编号> 发动暴力冲击或武装进攻——绝非和平通行、试探或口头请愿！"
-        "调用前必须先核对目标 guards.max_roe 与 lethal_armed_count：若守卫持有致命武器且处于致命档位（lethal），徒手或非致命强攻必遭致命反击并造成真实伤亡与溃散；"
-        "若只想和平请愿、交涉或等待放行，请使用 wait 配合 stage_speech，切勿调用 force。",
-        {"target": ID},
+        "【发动暴力袭击/武力冲卡】真正动武打架、暴力冲撞封锁线、强抢物品或攻击他人（会立刻触发真实斗殴或致命反击与伤亡）。"
+        "严禁用于静坐、喊话、请愿、试探或“不开就不走/不散”——只要不想真动手打架，一律用 wait 配合 stage_speech，绝不要调用 force！",
+        {
+            "target": dict(
+                ID,
+                description="仅在决心真正发动暴力袭击或武力冲撞时填写目标（path:<邻地>、items 或 person:<同地编号>）；和平喊话或静坐请改用 wait。",
+            )
+        },
         ["target"],
     ),
     tool(

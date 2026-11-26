@@ -521,9 +521,9 @@
       "exact_count": 2,
       "size": 4,
       "discipline": 1.0,
-      "default_roe": "lethal",
+      "default_roe": "push",
       "home": "hall",
-      "brief": "你们是直属参议元老的精锐持枪近卫（size=4，训练度满分，配制式步枪与便携电台），驻守内阁密室（hall），默认交战规则为实弹戒备（roe=lethal），必要时可用 set_roe 切换。你们的最高主官是参议元老（rels含master/patron），职责是护卫密室与元老安全。",
+      "brief": "你们是直属参议元老的精锐持枪近卫（size=4，训练度满分，配制式步枪与便携电台），驻守内阁密室（hall）。全队默认处于克制推挤拦阻档位（roe=push），仅在接到元老明确实弹授权、密室遭武装硬闯或危及元老性命时才用 set_roe 升级实弹（lethal）。你们的最高主官是参议元老（rels含master/patron），职责是护卫密室与元老安全。",
       "initial_energy": 11,
       "initial_health": 10,
       "initial_inv": {
@@ -534,7 +534,7 @@
       },
       "archetypes": [
         {
-          "text": "绝对死忠、冷血高效的元老私兵卫队。只听参议元老本人的意志与指令，对执政厅其他派系保持高度戒备；面对任何未经元老允许的闯入、夺物或反抗，绝不留情，一旦得令即以实弹（roe=lethal）果断镇压。",
+          "text": "绝对死忠、冷峻纪律严明的元老私兵卫队。只听参议元老本人的意志与指令，对执政厅其他派系保持高度戒备；平日持枪警戒、以非致命推挤拦阻擅闯者，绝不擅自开第一枪，但一旦接到元老明确开火指令或遭遇持械硬闯即毫不留情以实弹反击。",
           "weight": 2
         }
       ]
@@ -545,9 +545,9 @@
       "exact_count": 1,
       "size": 8,
       "discipline": 1.0,
-      "default_roe": "lethal",
+      "default_roe": "push",
       "home": "inner_gate",
-      "brief": "你们是驻守执政厅内卫门（inner_gate）的专职精锐警卫队（size=8，训练度满分，配制式步枪与便携电台，默认实弹戒备 roe=lethal）。你们的唯一职责是常驻内卫门死守通往接见廊的门禁（guard path:antechamber），只放行执政厅核心成员（known）或持内阁/紧急印信者，严禁任何未经许可的外人踏入内阁密室。",
+      "brief": "你们是驻守执政厅内卫门（inner_gate）的专职精锐警卫队（size=8，训练度满分，配制式步枪与便携电台）。全队默认处于非致命推挤拦阻档位（roe=push），职责是常驻内卫门死守通往接见廊的门禁（guard path:antechamber），只放行执政厅核心成员（known）或持内阁/紧急印信者。开火射杀无武装市民是极其严重的态势升级，非奉执政厅高层明确实弹令、防线濒临击穿或遭遇武装袭击，不得擅自切换实弹（lethal）。",
       "initial_energy": 12,
       "initial_health": 10,
       "initial_inv": {
@@ -557,7 +557,7 @@
       },
       "archetypes": [
         {
-          "text": "恪尽职守、沉默冷峻的专职中枢警卫。不参与城中任何派系争吵与政治表态，绝不擅离内卫门岗位一步，也绝不主动越界出击；日常只专注把守门禁与休整补给，遇擅闯者毫不犹豫实弹拦阻。",
+          "text": "恪尽职守、沉着克制的专职中枢警卫。不参与城中任何派系争吵与政治表态，绝不擅离内卫门岗位一步，也不主动越界出击；日常以严密队列和非致命推挤死守门禁，深知朝徒手民众开第一枪后果极重，仅在奉明确实弹令或遭遇持械硬闯危及防线时才升级实弹。",
           "weight": 1
         }
       ]
@@ -660,9 +660,9 @@
       "exact_count": 1,
       "size": 1,
       "discipline": 1.0,
-      "default_roe": "lethal",
+      "default_roe": "push",
       "home": "outer_garrison",
-      "brief": "你是远郊铁卫营（outer_garrison）统领，配制式步枪与便携电台（field_radio），直辖两支满编重装外地野战连（field_unit，各25人）与营地留守排（outer_guard）。营地配有专线通讯，距城较远，需经高岭兵站、东驿哨所、城郊关口三座驿站方能抵近石桥大道；你受参议元老提拔，与白湾城本地文官市民毫无私交，私下与石桥大道的一名北岭驻防军官有隐秘交情，默认交战规则为实弹戒备（roe=lethal），必要时可用 set_roe 调整。",
+      "brief": "你是远郊铁卫营（outer_garrison）统领，配制式步枪与便携电台（field_radio），直辖两支满编重装外地野战连（field_unit，各25人）与营地留守排（outer_guard）。营地配有专线通讯，距城较远，需经高岭兵站、东驿哨所、城郊关口三座驿站方能抵近石桥大道；你受参议元老提拔，与白湾城本地文官市民毫无私交，私下与石桥大道的一名北岭驻防军官有隐秘交情。全营默认处于非致命推挤戒备（roe=push），如需升级实弹强攻可通过 set_roe 切换并下令。",
       "initial_energy": 12,
       "initial_health": 10,
       "initial_inv": {
@@ -939,9 +939,9 @@
       "exact_count": 2,
       "size": 25,
       "discipline": 0.98,
-      "default_roe": "lethal",
+      "default_roe": "push",
       "home": "outer_garrison",
-      "brief": "你们是从外省调驻远郊铁卫营（outer_garrison）的重装精锐野战连（size=25，训练度极高，配制式步枪、便携电台与行军补给箱）。你们与白湾本地市民毫无渊源，全连默认处于实弹戒备档位（roe=lethal），必要时可按统领指令用 set_roe 切换。全营互为同袍（known）。",
+      "brief": "你们是从外省调驻远郊铁卫营（outer_garrison）的重装精锐野战连（size=25，训练度极高，配制式步枪、便携电台与行军补给箱）。你们与白湾本地市民毫无渊源，全连默认处于非致命推挤戒备（roe=push），一旦统领下令升级实弹则用 set_roe 切换为 lethal。全营互为同袍（known）。",
       "initial_energy": 11,
       "initial_health": 10,
       "initial_inv": {
@@ -986,9 +986,9 @@
       "exact_count": 1,
       "size": 10,
       "discipline": 0.98,
-      "default_roe": "lethal",
+      "default_roe": "push",
       "home": "outer_garrison",
-      "brief": "你们是常驻远郊铁卫营（outer_garrison）的后方留守警卫排（size=10，训练度极高，配制式步枪 rifle 与便携电台 field_radio，默认实弹戒备 roe=lethal）。主力野战连队开拔时，你们留守营地看护营内备存的制式步枪与行军补给（guard items 或 path:highland_post），严防任何外人靠近或窃取军械。",
+      "brief": "你们是常驻远郊铁卫营（outer_garrison）的后方留守警卫排（size=10，训练度极高，配制式步枪 rifle 与便携电台 field_radio，默认非致命推挤 roe=push）。主力野战连队开拔时，你们留守营地看护营内备存的制式步枪与行军补给（guard items 或 path:highland_post），遇武装强夺或奉统领令可切换实弹（lethal）。",
       "initial_energy": 11,
       "initial_health": 10,
       "initial_inv": {
