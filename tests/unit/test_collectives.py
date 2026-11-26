@@ -284,11 +284,20 @@ class CollectivesTests(PolityCase):
         self.assertEqual(w.places["outer_garrison"].items.get("rifle"), 6)
         p_chief = next(p for p in w.people.values() if p.role == "police_chief")
         self.assertEqual(p_chief.place, "police_hq")
+        self.assertEqual(p_chief.inv.get("police_seal"), 1)
         for role, expected_place in (("police_guard", "police_hq"), ("north_guard", "north_camp"), ("outer_guard", "outer_garrison")):
             sq = next(p for p in w.people.values() if p.role == role)
             self.assertEqual(sq.place, expected_place)
-        constab_ids = {p.id for p in w.people.values() if p.role == "constabulary"}
+        # Police command chain: cabinet/envoy go through police_chief; all constabulary & police_guard recognize each other.
+        constab_units = [p for p in w.people.values() if p.role == "constabulary"]
+        constab_ids = {p.id for p in constab_units}
+        p_guard = next(p for p in w.people.values() if p.role == "police_guard")
         self.assertTrue(constab_ids <= set(p_chief.relations))
+        self.assertIn(p_guard.id, p_chief.relations)
+        for unit in constab_units:
+            rel_roles = {w.people[cid].role for cid in unit.relations}
+            self.assertEqual(rel_roles, {"police_chief", "police_guard", "constabulary"})
+            self.assertEqual(len(unit.relations), 7)  # 1 chief + 1 police_guard + 5 fellow constabulary
         # Foundry connects to south_ward with organized 4x15 worker pickets and 2 labor leaders.
         self.assertEqual(spec["places"]["foundry"]["paths"], ["south_ward"])
         self.assertIn("foundry", spec["places"]["south_ward"]["paths"])
@@ -330,8 +339,8 @@ class CollectivesTests(PolityCase):
                 for cid in outer_cmd.relations
             )
         )
-        # Verify three unique seals exist once each and combat power hierarchy matches design intent.
-        for seal in ("cabinet_seal", "emergency_seal", "garrison_seal"):
+        # Verify four unique seals exist once each and combat power hierarchy matches design intent.
+        for seal in ("cabinet_seal", "emergency_seal", "garrison_seal", "police_seal"):
             self.assertEqual(sum(p.inv.get(seal, 0) for p in w.people.values()), 1)
         by_role = lambda role: next(p for p in w.people.values() if p.role == role)
         p_crowd = by_role("civic_crowd").combat_power(spec["items"], spec["rules"])

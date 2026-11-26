@@ -108,6 +108,12 @@
       "kind": "seal",
       "unique": true,
       "weight": 1
+    },
+    "police_seal": {
+      "label": "警务调令印",
+      "kind": "seal",
+      "unique": true,
+      "weight": 1
     }
   },
   "places": {
@@ -816,12 +822,13 @@
       "size": 1,
       "discipline": 1.0,
       "home": "police_hq",
-      "brief": "你是市政巡防总局（police_hq）总监，统筹全城六支市政巡防分队（constabulary）与局内值守警卫班（police_guard），随身配便携电台（field_radio）与巡防木棍（baton）。总局备有有线通讯、食堂与武器库（存有备用制式步枪 rifle 与木棍 baton）；你直隶内阁双执政官，并与北岭驻防总指挥官保持城防协同。巡防队日常仅持非致命木棍维持治安，是否开启武器库换装步枪、以及调队出勤与留守看库之间的取舍，全由你权衡。",
+      "brief": "你是市政巡防总局（police_hq）总监，掌管警务调令印（police_seal），随身配便携电台（field_radio）与巡防木棍（baton），是全城六支市政巡防分队（constabulary）与局内值守警卫班（police_guard）的唯一直属最高指挥官。总局备有有线通讯、食堂与武器库（存有备用制式步枪 rifle 与木棍 baton）；你行政上直隶内阁双执政官，并与北岭驻防总指挥官保持城防协同。巡防队日常仅持非致命木棍维持治安，是否开启武器库换装步枪、以及调队出勤与留守看库之间的取舍，均须经你调度与验印。",
       "initial_energy": 12,
       "initial_health": 10,
       "initial_inv": {
         "supply_box": 2,
         "baton": 1,
+        "police_seal": 1,
         "field_radio": 1,
         "scrip": 3
       },
@@ -836,7 +843,7 @@
       "size": 8,
       "discipline": 0.9,
       "home": "police_hq",
-      "brief": "你们是常驻市政巡防总局（police_hq）的值守与军械看护班（size=8，训练度高，配巡防木棍 baton 与便携电台 field_radio，默认非致命推挤 roe=push）。你们的核心职责是看守总局门禁与局内武器库（guard items 或 path），严防外人闯入夺取备用步枪与物资；遇紧急授权时可就地取用库中制式步枪升级戒备。",
+      "brief": "你们是常驻市政巡防总局（police_hq）的值守与军械看护班（size=8，训练度高，配巡防木棍 baton 与便携电台 field_radio，默认非致命推挤 roe=push）。你们直属巡防总监（rels含commander），与全城六支巡防分队互为同袍（known）。核心职责是看守总局门禁与局内武器库（guard items 或 path），严防外人闯入夺取备用步枪与物资；非经巡防总监当面授权或警务调令印（police_seal）核准，不许外人触碰库中枪械。",
       "initial_energy": 11,
       "initial_health": 10,
       "initial_inv": {
@@ -863,7 +870,7 @@
         "bridgeway": 2,
         "police_hq": 2
       },
-      "brief": "你们是配备巡防木棍（baton）与便携电台（field_radio）的市政巡防分队（size=6，训练度高），直属市政巡防总局（police_hq）巡防总监指挥，负责白湾城要道的治安警戒，按章认验总监指令与执政厅印信；必要时可回巡防总局休整补给或经授权领用武器库步枪。",
+      "brief": "你们是配备巡防木棍（baton）与便携电台（field_radio）的市政巡防分队（size=6，训练度高），直属市政巡防总局（police_hq）巡防总监（rels含commander/superior）指挥，全城六支巡防分队与总局警卫互为同袍（known）。日常听从巡防总监调度并认验警务调令印（police_seal）与经总监核准的执政厅令文；必要时可回巡防总局休整补给，或经总监授权领用武器库步枪。",
       "initial_energy": 9,
       "initial_health": 10,
       "initial_inv": {
@@ -1133,13 +1140,6 @@
     },
     {
       "from_group": "envoy",
-      "to_group": "constabulary",
-      "mode": "all",
-      "rel": "hall_guard",
-      "reverse_rel": "cabinet_aide"
-    },
-    {
-      "from_group": "envoy",
       "to_group": "organizer",
       "mode": "random_k",
       "k": 2,
@@ -1229,23 +1229,9 @@
       "rel": "comrade"
     },
     {
-      "from_group": "conciliator",
-      "to_group": "constabulary",
-      "mode": "all",
-      "rel": "guard_unit",
-      "reverse_rel": "superior"
-    },
-    {
-      "from_group": "hardliner",
-      "to_group": "constabulary",
-      "mode": "all",
-      "rel": "guard_unit",
-      "reverse_rel": "superior"
-    },
-    {
       "from_group": "constabulary",
       "to_group": "constabulary",
-      "mode": "same_home",
+      "mode": "all",
       "rel": "comrade"
     },
     {
@@ -1512,21 +1498,33 @@
       "from_group": "police_chief",
       "to_group": "constabulary",
       "mode": "all",
-      "rel": "subordinate",
-      "reverse_rel": "superior"
+      "rel": [
+        "subordinate",
+        "comrade"
+      ],
+      "reverse_rel": [
+        "commander",
+        "superior"
+      ]
     },
     {
       "from_group": "police_chief",
       "to_group": "police_guard",
       "mode": "all",
-      "rel": "armory_guard",
-      "reverse_rel": "commander"
+      "rel": [
+        "armory_guard",
+        "subordinate"
+      ],
+      "reverse_rel": [
+        "commander",
+        "superior"
+      ]
     },
     {
       "from_group": "police_guard",
       "to_group": "constabulary",
       "mode": "all",
-      "rel": "colleague"
+      "rel": "comrade"
     },
     {
       "from_group": "garrison_chief",
@@ -1658,7 +1656,8 @@
     "focal_seals": [
       "cabinet_seal",
       "emergency_seal",
-      "garrison_seal"
+      "garrison_seal",
+      "police_seal"
     ]
   }
 }
