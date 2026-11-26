@@ -209,7 +209,10 @@ class CollectivesTests(PolityCase):
         turn(w, {units[0].id: Intent("guard", "path:annex", detail="none")})
         view = w.observe(leader.id)
         self.assertEqual((view["size"], view["discipline"]), (1, 1.0))
-        self.assertEqual(view["guards"]["paths"]["annex"]["total_size"], 4)
+        # units[0] guards atrium's doorway against outsiders entering from annex (inbound_size=4),
+        # without blocking insiders' exit to annex (total_size=0, blocked_for_self=False).
+        annex_g = view["guards"]["paths"]["annex"]
+        self.assertEqual((annex_g["total_size"], annex_g["inbound_size"], annex_g["blocked_for_self"]), (0, 4, False))
         peers = {p["id"]: p for p in view["near"] + view["others_in_room"]}
         self.assertEqual((peers[units[0].id]["size"], peers[units[0].id]["disciplined"]), (4, True))
         self.assertEqual((peers[crowds[0].id]["size"], peers[crowds[0].id]["disciplined"]), (9, False))

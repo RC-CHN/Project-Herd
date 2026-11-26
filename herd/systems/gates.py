@@ -138,12 +138,13 @@ class GateSystem:
         for neighbor in world.places[person.place].paths:
             outbound = self.edge_guards(person.place, neighbor)
             inbound = self.edge_guards(neighbor, person.place)
-            all_guards = list(dict.fromkeys((*outbound, *inbound)))
             paths[neighbor] = dict(
-                **visible(all_guards),
+                **visible(outbound),
                 blocking_entry=len(inbound),
                 blocking_exit=len(outbound),
-                passes=sorted({world.people[g].posture.pass_rule.raw or "none" for g in all_guards}),
+                inbound_size=sum(world.people[g].size for g in inbound),
+                inbound_known=[g for g in inbound if g in known],
+                passes=sorted({world.people[g].posture.pass_rule.raw or "none" for g in outbound}),
                 blocked_for_self=bool(self.effective_blockers(outbound, actor, person)),
             )
         persons = {}

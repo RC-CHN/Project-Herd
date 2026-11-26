@@ -71,6 +71,7 @@
     "fiscal_ledger": {
       "label": "市政财政密账",
       "kind": "fungible",
+      "unique": true,
       "weight": 1
     },
     "baton": {

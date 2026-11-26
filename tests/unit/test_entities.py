@@ -174,6 +174,10 @@ class EntitiesTests(PolityCase):
         self.assertTrue(view["near"] and all(p["weak"] for p in view["near"]))
         annex_gate = view["guards"]["paths"]["annex"]
         self.assertEqual((annex_gate["blocking_entry"], annex_gate["blocking_exit"]), (1, 1))
+        # Outbound guard fields reflect only guards blocking r000's exit to annex (r009),
+        # not friendly/inbound guards in atrium blocking entry from annex (r002).
+        self.assertEqual((annex_gate["count"], annex_gate["inbound_size"]), (1, 1))
+        self.assertEqual(annex_gate["known_guards"], [])
         self.assertEqual(view["recent_room"]["blocked_takes"], [dict(actor="r004", item="ration")])
         self.assertEqual(
             view["recent_room"]["given"], [{"from": "r005", "to": "r006", "item": "ration", "qty": 1}]

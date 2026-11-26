@@ -289,6 +289,24 @@ class CombatTests(PolityCase):
         self.assertTrue(any(e.get("kind") == "disarm" and e.get("item") == "tile" for e in trace))
         self.assertIn(dict(actor="r002", item="tile", qty=1), w.places["atrium"].last_summary["placed"])
 
+        # Without arms, unique/seal items drop before heavier edible supplies (e.g. fiscal_ledger before supply_box).
+        w3 = world()
+        w3.spec["items"]["ledger"] = {"label": "Ledger", "kind": "fungible", "unique": True, "weight": 1}
+        w3.people["r000"].inv["tile"] = 1
+        w3.people["r001"].inv["tile"] = 1
+        w3.people["r002"].inv = {"ledger": 1, "ration": 2}  # ration weight=3 > ledger weight=1
+        turn(
+            w3,
+            {
+                "r000": Intent("force", "person:r002"),
+                "r001": Intent("force", "person:r002"),
+                "r002": Intent("wait"),
+            },
+        )
+        self.assertNotIn("ledger", w3.people["r002"].inv)
+        self.assertEqual(w3.places["atrium"].items.get("ledger"), 1)
+        self.assertEqual(w3.people["r002"].inv.get("ration"), 2)
+
     def test_requires_lethal_arms_prevents_unarmed_and_nonlethal_phantom_gunfire(self):
         from herd.model import load
 

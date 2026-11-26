@@ -80,7 +80,7 @@ def inventory(stock, items):
 def validate_items(items):
     extra = {
         "edible": "energy_restore",
-        "fungible": "",
+        "fungible": "unique",
         "arms": "combat_bonus nonlethal",
         "seal": "unique",
         "comm": "",
@@ -88,7 +88,7 @@ def validate_items(items):
     for name, item in items.items():
         kind = mapping(item, name).get("kind")
         reference(kind, extra, name)
-        if kind == "seal":
+        if kind in ("seal", "fungible"):
             item.setdefault("unique", False)
             if not isinstance(item["unique"], bool):
                 raise ValueError(f"{name}: unique must be boolean")

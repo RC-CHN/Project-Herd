@@ -54,10 +54,18 @@ class CombatSystem:
         ]
         if not candidates:
             return
-        dropped = max(
-            candidates,
-            key=lambda item: (ctx.items[item]["kind"] == "arms", ctx.items[item].get("weight", 1), item),
-        )
+        def _drop_priority(item):
+            spec = ctx.items[item]
+            kind = spec["kind"]
+            return (
+                kind == "arms",
+                bool(spec.get("unique")) or kind == "seal",
+                kind != "edible",
+                spec.get("weight", 1),
+                item,
+            )
+
+        dropped = max(candidates, key=_drop_priority)
         room = ctx.world.places[place]
         ctx.ledger.spend(victim.id, dropped, 1)
         adjust(room.items, dropped, 1)
