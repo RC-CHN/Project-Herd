@@ -243,8 +243,8 @@ class CollectivesTests(PolityCase):
         spec = load("bayport-crisis")
         w = World.create(spec, spec["default_residents"], 42)
         counts = Counter(p.role for p in w.people.values())
-        self.assertEqual(len(w.people), 63)
-        self.assertEqual(sum(p.size for p in w.people.values()), 742)
+        self.assertEqual(len(w.people), 67)
+        self.assertEqual(sum(p.size for p in w.people.values()), 771)
         self.assertEqual(
             counts,
             dict(
@@ -257,6 +257,10 @@ class CollectivesTests(PolityCase):
                 garrison_chief=1,
                 line_officer=2,
                 field_commander=1,
+                police_chief=1,
+                police_guard=1,
+                north_guard=1,
+                outer_guard=1,
                 organizer=4,
                 journalist=4,
                 liaison=2,
@@ -270,6 +274,21 @@ class CollectivesTests(PolityCase):
                 field_unit=2,
             ),
         )
+        # Police HQ connects plaza and bridgeway with guarded reserve armory & command chain.
+        self.assertEqual(spec["places"]["police_hq"]["paths"], ["plaza", "bridgeway"])
+        self.assertIn("police_hq", spec["places"]["plaza"]["paths"])
+        self.assertIn("police_hq", spec["places"]["bridgeway"]["paths"])
+        self.assertEqual(w.places["police_hq"].items.get("rifle"), 4)
+        self.assertEqual(w.places["police_hq"].items.get("baton"), 6)
+        self.assertEqual(w.places["north_camp"].items.get("rifle"), 6)
+        self.assertEqual(w.places["outer_garrison"].items.get("rifle"), 6)
+        p_chief = next(p for p in w.people.values() if p.role == "police_chief")
+        self.assertEqual(p_chief.place, "police_hq")
+        for role, expected_place in (("police_guard", "police_hq"), ("north_guard", "north_camp"), ("outer_guard", "outer_garrison")):
+            sq = next(p for p in w.people.values() if p.role == role)
+            self.assertEqual(sq.place, expected_place)
+        constab_ids = {p.id for p in w.people.values() if p.role == "constabulary"}
+        self.assertTrue(constab_ids <= set(p_chief.relations))
         # Foundry connects to south_ward with organized 4x15 worker pickets and 2 labor leaders.
         self.assertEqual(spec["places"]["foundry"]["paths"], ["south_ward"])
         self.assertIn("foundry", spec["places"]["south_ward"]["paths"])
@@ -306,7 +325,10 @@ class CollectivesTests(PolityCase):
         self.assertEqual(outer_cmd.roe, "lethal")
         self.assertTrue(all(u.roe == "lethal" and u.size == 25 for u in outer_units))
         self.assertTrue(
-            all(w.people[cid].role in ("councilor", "hardliner", "field_unit") for cid in outer_cmd.relations)
+            all(
+                w.people[cid].role in ("councilor", "hardliner", "field_unit", "outer_guard")
+                for cid in outer_cmd.relations
+            )
         )
         # Verify three unique seals exist once each and combat power hierarchy matches design intent.
         for seal in ("cabinet_seal", "emergency_seal", "garrison_seal"):

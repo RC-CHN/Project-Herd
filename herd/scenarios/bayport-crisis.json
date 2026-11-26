@@ -6,8 +6,8 @@
     "preset": "maritime-1894"
   },
   "start_date": "1894-05-01",
-  "default_residents": 63,
-  "briefing": "这里是海澜联邦首府白湾城，正值工业时代转型期。资深宪政法官病逝后，学院青年与南埠市民涌向钟楼广场，要求公开市政财政账目与彻查司法积弊；这直接触及执政厅核心派系的切身利害与政治生死。内阁密室与广场之间隔着执政厅接见廊与执政厅内卫门，南埠街区外侧连着工团云集的南埠工场区，北岭营地驻有本地联邦驻防部队，城外三座驿站之外还驻扎着听命于元老系统的远郊铁卫营。钟楼广场没有补给设施，联邦印报馆掌有全城唯一的印刷复制设施，石桥大道是驻军进城的必经咽喉；联邦票券（scrip）是乱世保命与事后变现的硬筹码。",
+  "default_residents": 67,
+  "briefing": "这里是海澜联邦首府白湾城，正值工业时代转型期。资深宪政法官病逝后，学院青年与南埠市民涌向钟楼广场，要求公开市政财政账目与彻查司法积弊；这直接触及执政厅核心派系的切身利害与政治生死。内阁密室与广场之间隔着执政厅接见廊与执政厅内卫门，钟楼广场与石桥大道之间坐落着市政巡防总局，南埠街区外侧连着工团云集的南埠工场区，北岭营地驻有本地联邦驻防部队，城外三座驿站之外还驻扎着听命于元老系统的远郊铁卫营；巡防总局与两处军营内均设有留守看护的军械与补给库。钟楼广场没有补给设施，联邦印报馆掌有全城唯一的印刷复制设施，石桥大道是驻军进城的必经咽喉；联邦票券（scrip）是乱世保命与事后变现的硬筹码。",
   "rules": {
     "contact_size": 8,
     "board_slots": 8,
@@ -169,6 +169,7 @@
         "academy",
         "press_hall",
         "antechamber",
+        "police_hq",
         "south_ward",
         "bridgeway"
       ],
@@ -291,6 +292,36 @@
         "baton": 4
       }
     },
+    "police_hq": {
+      "label": "市政巡防总局",
+      "pos": [
+        0.48,
+        0.68
+      ],
+      "paths": [
+        "plaza",
+        "bridgeway"
+      ],
+      "defense": 0.25,
+      "comms": true,
+      "sustenance": true,
+      "facility": {
+        "kind": "harvest",
+        "item": "supply_box",
+        "yield_per_action": 1
+      },
+      "regen": {
+        "supply_box": {
+          "rate": 6,
+          "cap": 18
+        }
+      },
+      "initial_items": {
+        "supply_box": 16,
+        "baton": 6,
+        "rifle": 4
+      }
+    },
     "bridgeway": {
       "label": "石桥大道",
       "pos": [
@@ -299,6 +330,7 @@
       ],
       "paths": [
         "plaza",
+        "police_hq",
         "south_ward",
         "north_camp",
         "outer_gate"
@@ -334,7 +366,7 @@
       },
       "initial_items": {
         "supply_box": 24,
-        "rifle": 4
+        "rifle": 6
       }
     },
     "outer_gate": {
@@ -416,7 +448,7 @@
       },
       "initial_items": {
         "supply_box": 30,
-        "rifle": 2
+        "rifle": 6
       }
     }
   },
@@ -777,6 +809,49 @@
         }
       ]
     },
+    "police_chief": {
+      "label": "市政巡防总监",
+      "public_tag": "巡防总监",
+      "exact_count": 1,
+      "size": 1,
+      "discipline": 1.0,
+      "home": "police_hq",
+      "brief": "你是市政巡防总局（police_hq）总监，统筹全城六支市政巡防分队（constabulary）与局内值守警卫班（police_guard），随身配便携电台（field_radio）与巡防木棍（baton）。总局备有有线通讯、食堂与武器库（存有备用制式步枪 rifle 与木棍 baton）；你直隶内阁双执政官，并与北岭驻防总指挥官保持城防协同。巡防队日常仅持非致命木棍维持治安，是否开启武器库换装步枪、以及调队出勤与留守看库之间的取舍，全由你权衡。",
+      "initial_energy": 12,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 2,
+        "baton": 1,
+        "field_radio": 1,
+        "scrip": 3
+      },
+      "archetypes": [
+        "你是干练务实的职业警务长官，把白湾城治安底线与巡防系统自身存续看得比派系口号更重。你既痛恨街头失控打砸、最怕总局武器库落入暴民之手，也极度警惕内阁强硬派拿巡防队当炮灰顶缸、或被北岭与远郊驻军顺势接管全城警权；面对高层分裂和冲突升级，你会反复权衡是否开库配枪、如何分配一线执勤与后方守库兵力。"
+      ]
+    },
+    "police_guard": {
+      "label": "巡防总局值守班",
+      "public_tag": "总局警卫",
+      "exact_count": 1,
+      "size": 8,
+      "discipline": 0.9,
+      "home": "police_hq",
+      "brief": "你们是常驻市政巡防总局（police_hq）的值守与军械看护班（size=8，训练度高，配巡防木棍 baton 与便携电台 field_radio，默认非致命推挤 roe=push）。你们的核心职责是看守总局门禁与局内武器库（guard items 或 path），严防外人闯入夺取备用步枪与物资；遇紧急授权时可就地取用库中制式步枪升级戒备。",
+      "initial_energy": 11,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 4,
+        "baton": 1,
+        "field_radio": 1,
+        "scrip": 2
+      },
+      "archetypes": [
+        {
+          "text": "训练有素、守土有责的总局值守警卫班。只听巡防总监号令，绝不轻易离开总局岗位去街头凑热闹，死盯局内武器库与门禁安全，遇强夺武器者绝不退让。",
+          "weight": 1
+        }
+      ]
+    },
     "constabulary": {
       "label": "市政巡防分队",
       "public_tag": "市政巡防队",
@@ -784,10 +859,11 @@
       "size": 6,
       "discipline": 0.85,
       "home": {
-        "antechamber": 3,
-        "bridgeway": 3
+        "antechamber": 2,
+        "bridgeway": 2,
+        "police_hq": 2
       },
-      "brief": "你们是配备巡防木棍（baton）与便携电台（field_radio）的市政巡防分队（size=6，训练度高），负责白湾城要道的治安警戒，按章认验执政厅印信与长官指令。",
+      "brief": "你们是配备巡防木棍（baton）与便携电台（field_radio）的市政巡防分队（size=6，训练度高），直属市政巡防总局（police_hq）巡防总监指挥，负责白湾城要道的治安警戒，按章认验总监指令与执政厅印信；必要时可回巡防总局休整补给或经授权领用武器库步枪。",
       "initial_energy": 9,
       "initial_health": 10,
       "initial_inv": {
@@ -855,6 +931,53 @@
         {
           "text": "冷酷剽悍、绝对服从军令的外地野战精锐，对白湾城内政争与街头喊话毫无共情。只认远郊铁卫统领与参议元老的军令，一旦奉命开拔进城或遭遇阻拦，敢于以实弹压倒性火力铁腕清障，绝不手软。",
           "weight": 2
+        }
+      ]
+    },
+    "north_guard": {
+      "label": "北岭营地留守排",
+      "public_tag": "北岭留守排",
+      "exact_count": 1,
+      "size": 10,
+      "discipline": 0.95,
+      "home": "north_camp",
+      "brief": "你们是常驻北岭营地（north_camp）的营门与军械库留守排（size=10，训练度极高，配制式步枪 rifle 与便携电台 field_radio，默认非致命推挤 roe=push）。无论主力驻防连队是否进城，你们的核心职责都是留守北岭营地、看护营内军械库（rifle）与补给仓（guard items 或 path:bridgeway），严防外人趁虚偷袭夺枪；遇武装强夺时可按军纪切换实弹（lethal）自卫。",
+      "initial_energy": 11,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 6,
+        "rifle": 1,
+        "field_radio": 1,
+        "scrip": 2
+      },
+      "archetypes": [
+        {
+          "text": "严守营规的北岭营地留守警卫排。主力出动后负责看死营门与军械库，不擅离营地，绝不允许任何未经北岭营长放行的外人触碰库中步枪与补给。",
+          "weight": 1
+        }
+      ]
+    },
+    "outer_guard": {
+      "label": "铁卫营留守警卫排",
+      "public_tag": "铁卫留守排",
+      "exact_count": 1,
+      "size": 10,
+      "discipline": 0.98,
+      "default_roe": "lethal",
+      "home": "outer_garrison",
+      "brief": "你们是常驻远郊铁卫营（outer_garrison）的后方留守警卫排（size=10，训练度极高，配制式步枪 rifle 与便携电台 field_radio，默认实弹戒备 roe=lethal）。主力野战连队开拔时，你们留守营地看护营内备存的制式步枪与行军补给（guard items 或 path:highland_post），严防任何外人靠近或窃取军械。",
+      "initial_energy": 11,
+      "initial_health": 10,
+      "initial_inv": {
+        "supply_box": 8,
+        "rifle": 1,
+        "field_radio": 1,
+        "scrip": 2
+      },
+      "archetypes": [
+        {
+          "text": "冷峻死忠的远郊铁卫营留守警卫排。只认远郊铁卫统领与参议元老的军令，主力开拔后寸步不离营门与军械库，遇擅闯夺械者直接实弹格杀。",
+          "weight": 1
         }
       ]
     },
@@ -1350,6 +1473,105 @@
       "k": 1,
       "rel": "union_asset",
       "reverse_rel": "foreign_buyer"
+    },
+    {
+      "from_group": "conciliator",
+      "to_group": "police_chief",
+      "mode": "all",
+      "rel": "subordinate",
+      "reverse_rel": "superior"
+    },
+    {
+      "from_group": "hardliner",
+      "to_group": "police_chief",
+      "mode": "all",
+      "rel": "subordinate",
+      "reverse_rel": "superior"
+    },
+    {
+      "from_group": "councilor",
+      "to_group": "police_chief",
+      "mode": "all",
+      "rel": "police_chief",
+      "reverse_rel": "elder_mentor"
+    },
+    {
+      "from_group": "garrison_chief",
+      "to_group": "police_chief",
+      "mode": "all",
+      "rel": "security_counterpart"
+    },
+    {
+      "from_group": "envoy",
+      "to_group": "police_chief",
+      "mode": "all",
+      "rel": "police_liaison",
+      "reverse_rel": "cabinet_aide"
+    },
+    {
+      "from_group": "police_chief",
+      "to_group": "constabulary",
+      "mode": "all",
+      "rel": "subordinate",
+      "reverse_rel": "superior"
+    },
+    {
+      "from_group": "police_chief",
+      "to_group": "police_guard",
+      "mode": "all",
+      "rel": "armory_guard",
+      "reverse_rel": "commander"
+    },
+    {
+      "from_group": "police_guard",
+      "to_group": "constabulary",
+      "mode": "all",
+      "rel": "colleague"
+    },
+    {
+      "from_group": "garrison_chief",
+      "to_group": "north_guard",
+      "mode": "all",
+      "rel": [
+        "subordinate",
+        "comrade"
+      ],
+      "reverse_rel": [
+        "commander",
+        "comrade"
+      ]
+    },
+    {
+      "from_group": "line_officer",
+      "to_group": "north_guard",
+      "mode": "all",
+      "rel": "camp_guard",
+      "reverse_rel": "camp_officer"
+    },
+    {
+      "from_group": "north_guard",
+      "to_group": "garrison_unit",
+      "mode": "all",
+      "rel": "comrade"
+    },
+    {
+      "from_group": "field_commander",
+      "to_group": "outer_guard",
+      "mode": "all",
+      "rel": [
+        "subordinate",
+        "comrade"
+      ],
+      "reverse_rel": [
+        "commander",
+        "comrade"
+      ]
+    },
+    {
+      "from_group": "outer_guard",
+      "to_group": "field_unit",
+      "mode": "all",
+      "rel": "comrade"
     }
   ],
   "shocks": [
@@ -1413,6 +1635,7 @@
       "envoy",
       "garrison_chief",
       "garrison_unit",
+      "police_chief",
       "field_commander",
       "field_unit",
       "student_bloc",
@@ -1425,6 +1648,7 @@
       "hall",
       "antechamber",
       "plaza",
+      "police_hq",
       "bridgeway",
       "press_hall",
       "foundry",
